@@ -2,6 +2,8 @@
 
 ## ソース管理と配置
 
+店舗LAN・VPN・倉庫からの常時利用向け中継サービスとインストーラーは [LANアクセス手順](docs/LAN-ACCESS.md) を参照してください。
+
 GitHub: https://github.com/kensugit/LIPS 。本番はDellのWSL2 / Ubuntu-24.04上のDocker構成であることを構築記録から確認しました。現在状態と配置前チェックは [Dell WSL本番環境](docs/DELL-WSL.md) を参照してください。
 
 取り込みコード・テスト・手順書をGitで管理します。原本と抽出データの `catalogs/`、DBバックアップ・検証結果の `artifacts/` はローカルに保持し、Gitの対象から除外します。原本を使うテストは、上記3社の資料をこのREADMEの名前で `catalogs/` に配置してから実行してください。

@@ -1,0 +1,34 @@
+using System.Net;
+using LipsLanGateway;
+using Microsoft.AspNetCore.Http;
+
+var policy = new LanPolicy("http://192.168.1.5:55441", "192.168.1.0/24;10.10.10.0/24;192.168.100.0/24");
+int checks = 0;
+void Check(bool value) { checks++; if (!value) throw new Exception($"Policy check {checks} failed"); }
+foreach(var ip in new[]{"192.168.1.9","10.10.10.1","192.168.100.21","127.0.0.1","::ffff:10.10.10.2"}) Check(policy.AllowsPeer(IPAddress.Parse(ip)));
+foreach(var ip in new[]{"192.168.0.9","10.10.11.1","8.8.8.8","::ffff:8.8.8.8"}) Check(!policy.AllowsPeer(IPAddress.Parse(ip)));
+Check(!policy.AllowsPeer(null));
+var context = new DefaultHttpContext();
+context.Request.Host = new HostString("192.168.1.5", 55441);
+context.Request.Method = "GET";
+Check(policy.AllowsRequest(context.Request));
+context.Request.Headers["X-Forwarded-For"] = "192.168.1.9";
+Check(!policy.AllowsPeer(IPAddress.Parse("8.8.8.8")));
+context.Request.Host = new HostString("attacker.invalid", 55441);
+Check(!policy.AllowsRequest(context.Request));
+context.Request.Host = new HostString("192.168.1.5", 55441);
+context.Request.Method = "POST";
+Check(!policy.AllowsRequest(context.Request));
+context.Request.Headers.Origin = "http://192.168.1.5:55441";
+Check(!policy.AllowsRequest(context.Request));
+context.Request.Headers["X-Catalog-Action"] = "local-demo";
+Check(policy.AllowsRequest(context.Request));
+context.Request.Headers.Origin = "http://attacker.invalid";
+Check(!policy.AllowsRequest(context.Request));
+context.Request.Headers.Origin = "http://192.168.1.5:55441";
+context.Request.Headers["Sec-Fetch-Site"] = "cross-site";
+Check(!policy.AllowsRequest(context.Request));
+context.Request.Headers.Remove("Sec-Fetch-Site");
+context.Request.Method = "DELETE";
+Check(!policy.AllowsRequest(context.Request));
+Console.WriteLine($"LAN policy: {checks} checks passed");
