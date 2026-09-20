@@ -1,0 +1,6 @@
+__pycache__/
+tmp/
+**/bin/
+**/obj/
+artifacts/
+catalogs/
