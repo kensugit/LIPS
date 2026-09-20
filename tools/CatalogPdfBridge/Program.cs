@@ -8,9 +8,9 @@ using CatalogSearch.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-if (args.Length < 2 || args.Length > 3 || (args.Length == 3 && args[2] is not ("--persist" or "--verify")))
+if (args.Length < 2 || args.Length > 3 || (args.Length == 3 && args[2] is not ("--persist" or "--verify" or "--check-schema")))
 {
-    Console.Error.WriteLine("Usage: CatalogPdfBridge bundle.json original.pdf [--persist|--verify]. CATALOG_CONNECTION required for database operations.");
+    Console.Error.WriteLine("Usage: CatalogPdfBridge bundle.json original.pdf [--persist|--verify|--check-schema]. CATALOG_CONNECTION required for database operations.");
     return 2;
 }
 try
@@ -43,6 +43,11 @@ try
     var expected = db.Database.GetMigrations().ToArray();
     var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
     if (expected.Length == 0 || expected.Except(applied).Any() || applied.Except(expected).Any()) throw new InvalidDataException("Database schema mismatch; migration is not performed by this tool");
+    if (args.Contains("--check-schema"))
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new { schemaReady = true, migrations = applied.Length, products = rows.Count }));
+        return 0;
+    }
     if (args.Contains("--verify"))
     {
         var supplier = await db.Suppliers.SingleAsync(x => x.Code == bundle.SupplierCode);

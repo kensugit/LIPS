@@ -40,3 +40,9 @@ wsl -d Ubuntu-24.04 --exec bash -lc 'cd ~/lips/repo/catalog-search-poc && git re
 この開発PCから既知のDellアドレス `192.168.1.5` の22/5986/55440はすべてタイムアウト。SSH設定・秘密鍵の配備は確認できていない。タイムアウトはアプリ停止の証明ではない。LIPSはloopback公開のため、LANから55440へ到達しないこと自体は想定内。
 
 本番への転送・取込・アプリ更新は未実施。利用可能な管理接続経路、またはDell上での状態確認結果が必要。接続のためにFirewallや認証設定を変更してはいない。
+
+## 利用者からの実機確認結果（2026-09-20）
+
+両コンテナhealthy、検索API total=1061、アプリソース17465b2c19adb4809c9a6802d9bc00de1fd39e32、作業ツリー差分なし。バックアップ `/var/lib/catalog-deploy/backups/before-pdf-20260920-151817.dump` は1.2M、root所有0600、pg_restoreによる一覧読取成功。開発側の取り込みランタイムと本番版のMigration/DbContextソースに差分なし。
+
+`tools/Import-Dell-Pdfs.sh` を原本・取込JSON・接続CLIと合わせて配布する。既定 `--check` は原本ハッシュとDBスキーマ、healthy、既知の本番イメージID・DB公開ポートを検証し書込みなし。`--apply` で最新バックアップを取得・検証後、3社の登録と全件照合を行う。途中停止時は完了済みの仕入先は残る。再実行時は同一原本ハッシュによる重複防止が働く。Webの更新・再起動、Migrationの適用は行わない。Linuxコンテナでの動作確認はDell上の `--check` を通すまで未完了。
