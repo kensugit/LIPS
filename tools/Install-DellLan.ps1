@@ -23,7 +23,17 @@ if ($oldTask.Principal.LogonType -ne 'Interactive') { throw 'Existing WSL task i
 $oldSid = (New-Object Security.Principal.NTAccount($oldTask.Principal.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value
 if ($oldSid -ne $taskOwner.User.Value) { throw 'Run as the account that owns the existing LIPS-Start-WSL task.' }
 if ((Get-NetTCPConnection -State Listen -LocalPort 55441 -ErrorAction SilentlyContinue) -or (Get-ScheduledTask -TaskName 'LIPS-LAN-Gateway' -ErrorAction SilentlyContinue)) { throw 'Port or gateway task already exists. Inspect it before reinstalling.' }
-if (Test-Path -LiteralPath $installRoot) { throw 'Installation directory already exists. Inspect it before reinstalling.' }
+$resumePreparation = $false
+if (Test-Path -LiteralPath $installRoot) {
+    $existing = @(Get-ChildItem -LiteralPath $installRoot -Force)
+    if ($existing.Count -ne 1 -or $existing[0].Name -ne 'previous-wsl-task.xml' -or $existing[0].PSIsContainer) { throw 'Installation directory contains more than a preparation-only backup; inspect before reinstalling.' }
+    $savedTask = [IO.File]::ReadAllText("$installRoot\previous-wsl-task.xml").Trim()
+    $currentTask = (Export-ScheduledTask -TaskName 'LIPS-Start-WSL').Trim()
+    if ($savedTask -ne $currentTask) { throw 'The WSL task changed after the preparation backup; inspect before reinstalling.' }
+    if (Get-NetFirewallRule -Name 'LIPS-LAN-55441' -ErrorAction SilentlyContinue) { throw 'A previous gateway firewall rule exists; inspect before reinstalling.' }
+    $resumePreparation = $true
+    Write-Output 'Verified preparation-only directory; original WSL task is unchanged. Resuming without deleting the backup.'
+}
 $packageRoot = $PSScriptRoot
 $manifest = Get-Content -LiteralPath (Join-Path $packageRoot 'manifest.json') -Raw | ConvertFrom-Json
 foreach ($entry in $manifest.files) {
@@ -35,6 +45,8 @@ Write-Output "URL: http://192.168.1.5:55441; allowed networks: $($networks -join
 Write-Output 'Plan: gateway + scoped firewall rule; password-backed startup WSL task; no task time limit; battery allowed; AC sleep/hibernate disabled.'
 Write-Output 'Database, existing iWSET services, network category and DC power settings remain unchanged.'
 if (-not $Apply) { Write-Output 'Plan only. Re-run with -Apply to install.'; return }
+. (Join-Path $packageRoot 'Get-LanPowerSettings.ps1')
+$power = Get-LanPowerSettings
 # Verify the selected account has this WSL distribution before making changes.
 $distros = ((& wsl.exe --list --quiet) -join "`n").Replace([string][char]0,'')
 if ($distros -notmatch '(?m)^\s*Ubuntu-24\.04\s*$') { throw 'Ubuntu-24.04 is not registered for this Windows account.' }
@@ -42,19 +54,11 @@ $credential = Get-Credential -UserName $taskOwner.Name -Message 'Enter this Wind
 if (-not $credential) { throw 'Credential entry cancelled.' }
 $credentialSid = (New-Object Security.Principal.NTAccount($credential.UserName)).Translate([Security.Principal.SecurityIdentifier]).Value
 if ($credentialSid -ne $taskOwner.User.Value) { throw 'Use the same Windows account that owns Ubuntu-24.04.' }
-New-Item -ItemType Directory -Path $installRoot | Out-Null
+if (-not $resumePreparation) { New-Item -ItemType Directory -Path $installRoot | Out-Null }
 & icacls.exe $installRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not protect installation directory.' }
-Export-ScheduledTask -TaskName 'LIPS-Start-WSL' | Set-Content -LiteralPath "$installRoot\previous-wsl-task.xml" -Encoding Unicode
+if (-not $resumePreparation) { Export-ScheduledTask -TaskName 'LIPS-Start-WSL' | Set-Content -LiteralPath "$installRoot\previous-wsl-task.xml" -Encoding Unicode }
 $oldTaskRunning = $oldTask.State -eq 'Running'
-$power = @{}
-foreach ($setting in @('STANDBYID','HIBERNATEID')) {
-    $query = (& powercfg.exe /query SCHEME_CURRENT SUB_SLEEP $setting) -join "`n"
-    if ($LASTEXITCODE -ne 0) { throw 'Power policy query failed.' }
-    $indices = [regex]::Matches($query,'0x([0-9a-fA-F]{8})')
-    if ($indices.Count -lt 2) { throw 'Could not identify current AC power policy.' }
-    $power[$setting] = [Convert]::ToInt32($indices[$indices.Count-2].Groups[1].Value,16)
-}
 @{Power=$power; WslWasRunning=$oldTaskRunning; Networks=$networks; Owner=$taskOwner.Name} | ConvertTo-Json | Set-Content "$installRoot\previous-settings.json" -Encoding UTF8
 Copy-Item -LiteralPath (Join-Path $packageRoot 'gateway') -Destination $installRoot -Recurse
 Copy-Item -LiteralPath (Join-Path $packageRoot 'Keep-LipsWsl.ps1') -Destination $installRoot
@@ -73,7 +77,7 @@ try {
     $gatewayPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited
     Register-ScheduledTask -TaskName 'LIPS-LAN-Gateway' -Action $gatewayAction -Trigger $trigger -Settings $settings -Principal $gatewayPrincipal | Out-Null
     New-NetFirewallRule -Name 'LIPS-LAN-55441' -DisplayName 'LIPS LAN VPN Warehouse' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 55441 -LocalAddress 192.168.1.5 -RemoteAddress $networks -Profile Any -Program "$installRoot\gateway\LipsLanGateway.exe" | Out-Null
-    foreach ($setting in @('STANDBYID','HIBERNATEID')) {
+    foreach ($setting in @('STANDBYIDLE','HIBERNATEIDLE')) {
         & powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_SLEEP $setting 0
         if ($LASTEXITCODE -ne 0) { throw 'Could not update AC power policy.' }
     }

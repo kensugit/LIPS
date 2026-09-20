@@ -10,7 +10,7 @@ Get-NetFirewallRule -Name 'LIPS-LAN-55441' -ErrorAction SilentlyContinue | Remov
 Stop-ScheduledTask -TaskName 'LIPS-Start-WSL' -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName 'LIPS-Start-WSL' -Xml (Get-Content "$installRoot\previous-wsl-task.xml" -Raw) -Force | Out-Null
 if ($previous.WslWasRunning) { Start-ScheduledTask -TaskName 'LIPS-Start-WSL' }
-foreach ($setting in @('STANDBYID','HIBERNATEID')) {
+foreach ($setting in @('STANDBYIDLE','HIBERNATEIDLE')) {
     & powercfg.exe /setacvalueindex SCHEME_CURRENT SUB_SLEEP $setting ([string]$previous.Power.$setting)
     if ($LASTEXITCODE -ne 0) { throw 'Could not restore AC power policy.' }
 }
