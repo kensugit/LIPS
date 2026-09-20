@@ -2,6 +2,8 @@
 
 ## ソース管理と配置
 
+Codexからの本番状態確認・転送・承認済みWeb更新の専用接続は [Codex配布手順](docs/CODEX-DEPLOY.md) を参照してください。
+
 店舗LAN・VPN・倉庫からの常時利用向け中継サービスとインストーラーは [LANアクセス手順](docs/LAN-ACCESS.md) を参照してください。
 
 GitHub: https://github.com/kensugit/LIPS 。本番はDellのWSL2 / Ubuntu-24.04上のDocker構成であることを構築記録から確認しました。現在状態と配置前チェックは [Dell WSL本番環境](docs/DELL-WSL.md) を参照してください。
