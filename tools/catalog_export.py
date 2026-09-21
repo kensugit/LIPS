@@ -66,7 +66,7 @@ def wine_experience_rows(records: list[dict]) -> list[dict]:
 def export_bundle(metadata_path: Path, observed_at: str, destination: Path) -> dict:
     date.fromisoformat(observed_at)
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    if metadata["parser"] not in ("wine-experience", "finesse", "royal"):
+    if metadata["parser"] not in ("wine-experience", "finesse", "royal", "toyotsu", "daiei", "diony", "diony-news"):
         raise ValueError("No product mapper is registered for this parser")
     root = metadata_path.parent
     for name, digest in metadata["artifacts"].items():
@@ -87,7 +87,11 @@ def export_bundle(metadata_path: Path, observed_at: str, destination: Path) -> d
                 row["RawCellsJson"] = json.dumps(raw, ensure_ascii=False)
     if len(rows) != metadata["product_count"] or len({r["SupplierProductCode"] for r in rows}) != len(rows):
         raise ValueError("Product coverage mismatch")
-    code, name = {"wine-experience": ("WINE_EXPERIENCE", "ワインエクスペリエンス"), "finesse": ("FINESSE", "フィネス"), "royal": ("ROYAL_OF_JAPAN", "ローヤルオブジャパン")}[metadata["parser"]]
+    if metadata["parser"] in ("toyotsu", "daiei", "diony", "diony-news"):
+        source_month = json.loads(rows[0]["RawCellsJson"])["資料年月"]
+        if observed_at != source_month + "-01":
+            raise ValueError("Use the source month start for a month-only document date")
+    code, name = {"diony": ("DIONY", "ディオニー"), "diony-news": ("DIONY", "ディオニー"), "daiei": ("DAIEI", "大榮産業"), "wine-experience": ("WINE_EXPERIENCE", "ワインエクスペリエンス"), "finesse": ("FINESSE", "フィネス"), "royal": ("ROYAL_OF_JAPAN", "ローヤルオブジャパン"), "toyotsu": ("TOYOTSU", "豊通食料")}[metadata["parser"]]
     bundle = dict(SchemaVersion=1, SourceFileName=metadata["source_filename"], SourceSha256=metadata["sha256"],
                   ObservedAt=observed_at, SupplierCode=code, SupplierName=name,
                   ParserVersion=f'{metadata["parser"]}Pdf/{metadata["version"]}+Catalog/1', Rows=rows)

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -18,10 +19,19 @@ try
     var bundle = JsonSerializer.Deserialize<ImportBundle>(await File.ReadAllTextAsync(args[0])) ?? throw new InvalidDataException("Missing bundle");
     var bytes = await File.ReadAllBytesAsync(args[1]);
     var hash = Convert.ToHexString(SHA256.HashData(bytes));
-    if (bundle.SchemaVersion != 1 || bytes.Length is 0 or > 20_000_000 || !bytes.AsSpan().StartsWith("%PDF-"u8) ||
-        !hash.Equals(bundle.SourceSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("PDF/hash/schema mismatch");
+    var xlsxValid = false;
+    if (bundle.SourceFileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) && bytes.AsSpan().StartsWith("PK\x03\x04"u8))
+    {
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        xlsxValid = archive.GetEntry("[Content_Types].xml") is not null && archive.GetEntry("xl/workbook.xml") is not null &&
+            archive.GetEntry("xl/vbaProject.bin") is null;
+    }
+    var sourceFormatValid = (bundle.SourceFileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && bytes.AsSpan().StartsWith("%PDF-"u8)) ||
+        (bundle.SourceFileName.EndsWith(".xls", StringComparison.OrdinalIgnoreCase) && bytes.AsSpan().StartsWith(new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 })) || xlsxValid;
+    if (bundle.SchemaVersion != 1 || bytes.Length is 0 or > 20_000_000 || !sourceFormatValid ||
+        !hash.Equals(bundle.SourceSha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Source format/hash/schema mismatch");
     if (!Regex.IsMatch(bundle.SupplierCode, "^[A-Z0-9_]{1,50}$") || string.IsNullOrWhiteSpace(bundle.SupplierName) || bundle.SupplierName.Length > 100 ||
-        bundle.SourceFileName != Path.GetFileName(bundle.SourceFileName) || !bundle.SourceFileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ||
+        bundle.SourceFileName != Path.GetFileName(bundle.SourceFileName) ||
         string.IsNullOrWhiteSpace(bundle.ParserVersion)) throw new InvalidDataException("Invalid source identity");
     var observed = new DateTimeOffset(DateTime.ParseExact(bundle.ObservedAt, "yyyy-MM-dd", CultureInfo.InvariantCulture), TimeSpan.Zero);
     var rows = bundle.Rows;
@@ -69,7 +79,7 @@ try
                 prices[product.Id].Amount != row.ReferenceRetailPrice || prices[product.Id].TaxIncluded != row.TaxIncluded ||
                 inventories[product.Id].Quantity != row.Inventory.Quantity || inventories[product.Id].Status != row.Inventory.Status ||
                 inventories[product.Id].RawValue != row.Inventory.RawValue) throw new InvalidDataException("Stored evidence/history mismatch");
-            if (product.CurrentObservedAt == observed && (product.CurrentSourceDocumentId != source.Id || product.SupplierProductName != row.ProductNameJa ||
+            if (product.CurrentSourceDocumentId == source.Id && (product.CurrentObservedAt != observed || product.SupplierProductName != row.ProductNameJa ||
                 product.ProductNameEn != row.ProductNameEn || product.ProducerNameJa != row.ProducerNameJa || product.ProducerNameEn != row.ProducerNameEn ||
                 product.VolumeMl != row.VolumeMl || product.VintageRaw != row.VintageRaw || product.CurrentPrice != row.ReferenceRetailPrice ||
                 product.TaxIncluded != row.TaxIncluded || product.CurrentInventoryQuantity != row.Inventory.Quantity || product.CurrentInventoryStatus != row.Inventory.Status))
@@ -82,6 +92,35 @@ try
         return 0;
     }
     var result = await new PostgresInventoryStore(db).SaveAsync(new(bundle.SourceFileName, bytes, observed, bundle.SupplierCode, bundle.SupplierName, bundle.ParserVersion), hash, rows, default);
+    // Some compatible production runtimes omit supplier/description terms from the index.
+    // Repair only products whose current source is this exact verified document; replay is idempotent.
+    db.ChangeTracker.Clear();
+    await using var indexTransaction = await db.Database.BeginTransactionAsync();
+    await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(73190218)");
+    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({bundle.SupplierCode}, 0))");
+    var importedSupplier = await db.Suppliers.SingleAsync(x => x.Code == bundle.SupplierCode);
+    var importedSource = await db.SourceDocuments.SingleAsync(x => x.SupplierId == importedSupplier.Id && x.FileHash == hash);
+    var currentProducts = await db.SupplierProducts.Where(x => x.SupplierId == importedSupplier.Id && x.CurrentSourceDocumentId == importedSource.Id).ToListAsync();
+    var currentIds = currentProducts.Select(x => x.Id).ToArray();
+    var searchDocuments = await db.ProductSearchDocuments.Where(x => x.EntityType == SearchEntityType.SupplierProduct && currentIds.Contains(x.SourceRecordId)).ToDictionaryAsync(x => x.SourceRecordId);
+    var inputRows = rows.ToDictionary(x => x.SupplierProductCode);
+    using var inputJson = JsonDocument.Parse(await File.ReadAllTextAsync(args[0]));
+    var descriptions = inputJson.RootElement.GetProperty("Rows").EnumerateArray().ToDictionary(
+        x => x.GetProperty("SupplierProductCode").GetString()!,
+        x => x.TryGetProperty("Description", out var description) ? description.GetString() ?? "" : "");
+    foreach (var product in currentProducts)
+    {
+        var row = inputRows[product.SupplierProductCode];
+        var document = searchDocuments[product.Id];
+        var searchText = string.Join(" ", bundle.SupplierName, row.ProductNameJa, row.ProductNameEn, row.ProducerNameJa,
+            row.ProducerNameEn, row.VintageRaw, row.ProductType, row.Country, row.Region, row.Grapes,
+            row.AppellationJa, row.AppellationEn, row.OrganicCategory, descriptions[row.SupplierProductCode], row.SupplierProductCode);
+        if (document.SearchText == searchText) continue;
+        document.SearchText = searchText;
+        document.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+    await db.SaveChangesAsync();
+    await indexTransaction.CommitAsync();
     Console.WriteLine(JsonSerializer.Serialize(result));
     return 0;
 }

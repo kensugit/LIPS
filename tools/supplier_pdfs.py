@@ -195,3 +195,71 @@ def finesse(data):
     missing = sum(row["VolumeMl"] == 0 for row in rows)
     warnings += [f"容量記載なし{missing}件。検索用VolumeMl=0、原表は空欄を保持", "SKU記載なし。生産者・商品名・色・年号・容量・取引区分から内部識別子を生成"]
     return rows, warnings
+
+
+def toyotsu(data):
+    """Read all 13 source columns; collapse only identical repeated supplier SKUs."""
+    columns = ['商品コード', '国', '地域', '生産者', '商品名', '生産年', '色', '容量', '入数', '小売価格', '在庫', 'AOPなど', '入荷予定']
+    records, locations = {}, {}
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        cover = pdf.pages[0].extract_text() or ''
+        month = re.search(r'豊通食料株式会社\s*ワイン在庫リスト\s*(20\d{2})年(\d{1,2})月', cover)
+        if not month:
+            raise ValueError('Toyotsu source title/month missing')
+        source_month = f'{month[1]}-{int(month[2]):02}'
+        for page_no, page in enumerate(pdf.pages[1:], 2):
+            text = page.extract_text() or ''
+            compact = re.sub(r'\s+', '', text)
+            if '価格：税抜価格' not in compact or '12本未満…△' not in compact or '60本未満…◯' not in compact or '60本以上…◎' not in compact:
+                raise ValueError(f'Toyotsu price/stock legend changed on page {page_no}')
+            expected = re.findall(r'(?m)^\s*([A-Z][A-Z0-9]{5})', text)
+            actual = []
+            for table in page.extract_tables():
+                if table[0] != columns:
+                    raise ValueError(f'Toyotsu table header changed on page {page_no}')
+                for source_row, cells in enumerate(table[1:], 1):
+                    if not any(c and c.strip() for c in cells):
+                        continue
+                    if len(cells) != 13 or any(c is None for c in cells) or not re.fullmatch(r'[A-Z][A-Z0-9]{5}', cells[0]):
+                        raise ValueError(f'Toyotsu invalid table row on page {page_no}: {source_row}')
+                    sku = cells[0]
+                    actual.append(sku)
+                    raw = dict(zip(columns, cells))
+                    loc = {'PDFページ': page_no, '表内行': source_row}
+                    if sku in records:
+                        if records[sku] != raw:
+                            raise ValueError(f'Toyotsu conflicting repeated SKU: {sku}')
+                        locations[sku].append(loc)
+                    else:
+                        records[sku], locations[sku] = raw, [loc]
+            if not expected or Counter(actual) != Counter(expected):
+                raise ValueError(f'Toyotsu product coverage mismatch on page {page_no}')
+    rows = []
+    for sku, raw in records.items():
+        flat = lambda key: normalize(raw[key].replace('\n', ' '))
+        if not all(flat(k) for k in ['国', '地域', '生産者', '商品名', '色']):
+            raise ValueError(f'Toyotsu required field missing: {sku}')
+        if not re.fullmatch(r'NV|(?:19|20)\d{2}', flat('生産年')):
+            raise ValueError(f'Toyotsu invalid vintage: {sku}')
+        if not all(re.fullmatch(r'[1-9]\d*', flat(k)) for k in ['容量', '入数']):
+            raise ValueError(f'Toyotsu invalid volume/case: {sku}')
+        price_raw, stock = flat('小売価格'), flat('在庫')
+        if price_raw.lower() not in ('', 'open') and not re.fullmatch(r'\d{1,3}(?:,\d{3})*|\d+', price_raw):
+            raise ValueError(f'Toyotsu invalid price: {sku}')
+        if stock not in ('◎', '◯', '△', '×'):
+            raise ValueError(f'Toyotsu unknown stock: {sku}')
+        price = int(price_raw.replace(',', '')) if price_raw.lower() not in ('', 'open') else None
+        note = {'◎': '在庫60本以上（数量未確定）', '◯': '在庫60本未満（数量未確定）', '△': '在庫12本未満（数量未確定）', '×': '在庫×（欠品）'}[stock]
+        note += f'。資料は{source_month}の月次リスト（日付記載なし、基準日は月初として登録）'
+        if not price_raw: note += '。小売価格記載なし'
+        elif price_raw.lower() == 'open': note += '。オープン価格'
+        if flat('入荷予定'): note += '。入荷予定欄：' + flat('入荷予定')
+        loc = locations[sku][0]
+        raw.update({'資料年月': source_month, '掲載箇所': locations[sku]})
+        row = row_contract(sku, flat('商品名'), flat('生産者'), flat('国'), flat('地域'), flat('色'), flat('生産年'), int(flat('容量')), int(flat('入数')), price, stock, loc['PDFページ'], loc['表内行'], raw, description='豊通食料 ' + note, notes=note, appellation=flat('AOPなど'))
+        row['Inventory'] = dict(Quantity=None, Status={'◎': 1, '◯': 1, '△': 2, '×': 3}[stock], RawValue=stock)
+        row['OriginalSupplierProductCode'] = sku
+        rows.append(row)
+    unique(rows)
+    duplicates = sum(len(v) - 1 for v in locations.values())
+    return rows, [f'同一内容の再掲載{duplicates}行を商品コードで統合。全掲載ページを原表データに保持。', '月のみ記載のため基準日は月初。記号在庫の本数は未設定。']

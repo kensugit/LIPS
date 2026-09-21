@@ -12,7 +12,8 @@ import re
 import tempfile
 from collections import Counter
 
-VERSION = 6
+VERSION = 7
+PARSER_VERSIONS = {"diony": 11, "diony-news": 10}
 PRODUCT_CODE = r"WE[A-Z]{2}\d{4}[A-Z]?"
 
 
@@ -85,11 +86,21 @@ def wine_experience(data: bytes) -> tuple[list[dict], list[str]]:
 
 
 try:
-    from .supplier_pdfs import finesse, royal
+    from .supplier_pdfs import finesse, royal, toyotsu
 except ImportError:
-    from supplier_pdfs import finesse, royal
+    from supplier_pdfs import finesse, royal, toyotsu
 
-PARSERS = {"wine-experience": wine_experience, "finesse": finesse, "royal": royal}
+try:
+    from .daiei_pdf import daiei
+except ImportError:
+    from daiei_pdf import daiei
+
+try:
+    from .diony_pdf import diony, diony_news
+except ImportError:
+    from diony_pdf import diony, diony_news
+
+PARSERS = {"diony": diony, "diony-news": diony_news, "daiei": daiei, "wine-experience": wine_experience, "finesse": finesse, "royal": royal, "toyotsu": toyotsu}
 
 
 def import_pdf(source: Path, output: Path, name: str | None = None, parser: str = "text") -> dict:
@@ -102,6 +113,7 @@ def import_pdf(source: Path, output: Path, name: str | None = None, parser: str 
     data = source.read_bytes()
     if not data.startswith(b"%PDF-"):
         raise ValueError("Source does not have a PDF signature")
+    version = PARSER_VERSIONS.get(parser, VERSION)
     digest = hashlib.sha256(data).hexdigest()
     output = output.resolve()
     target = output / f"{name}.pdf"
@@ -110,7 +122,7 @@ def import_pdf(source: Path, output: Path, name: str | None = None, parser: str 
         raise ValueError(f"Different PDF already exists: {target}. Use a new name.")
     if meta_path.exists():
         previous = json.loads(meta_path.read_text(encoding="utf-8"))
-        if previous.get("sha256") == digest and previous.get("parser") == parser and previous.get("version") == VERSION:
+        if previous.get("sha256") == digest and previous.get("source_filename") == source.name and previous.get("parser") == parser and previous.get("version") == version:
             artifacts = previous.get("artifacts", {})
             if artifacts and all((output / file).is_file() and hashlib.sha256((output / file).read_bytes()).hexdigest() == sha for file, sha in artifacts.items()):
                 return {**previous, "result": "unchanged"}
@@ -132,7 +144,7 @@ def import_pdf(source: Path, output: Path, name: str | None = None, parser: str 
         writer.writeheader()
         writer.writerows(records)
         payloads[f"{name}.csv"] = stream.getvalue().encode("utf-8-sig")
-    metadata = {"version": VERSION, "source_filename": source.name, "sha256": digest,
+    metadata = {"version": version, "source_filename": source.name, "sha256": digest,
                 "parser": parser, "pages": len(texts), "page_characters": [len(t) for t in texts],
                 "product_count": count, "warnings": warnings,
                 "artifacts": {file: hashlib.sha256(content).hexdigest() for file, content in payloads.items()}}

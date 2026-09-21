@@ -1,0 +1,128 @@
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+index ba5356e..61db8ff 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+@@ -11,6 +11,7 @@ public sealed record NaturalSearchPlan(CatalogFilter Filter, bool Champagne, str
+ public static class NaturalSearch
+ {
+     private const string Number = @"(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?";
++    private const string PriceNumber = Number + @"(?:万(?:" + Number + @")?|千)?";
+     private static string Replace(string input, string pattern, MatchEvaluator evaluator) =>
+         Regex.Replace(input, pattern, evaluator, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+ 
+@@ -37,7 +38,19 @@ public static class NaturalSearch
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"(?:価格|予算|税抜|希望小売価格)?\s*(?<![\d.,-])(" + Number + @"(?:万(?:" + Number + @")?|千)?)\s*円\s*(以下|以内|まで|以上|から|未満|超え?)(?![a-z])", m =>
++        // Parse the complete range before consuming a single-ended '円から' condition.
++        text = Replace(text, @"(?:価格|予算|税抜|希望小売価格)?\s*(?<![\d.,-])(?<lower>" + PriceNumber + @")\s*(?:円\s*)?(?:から|[~〜～])\s*(?<upper>" + PriceNumber + @")\s*円\s*(?<suffix>まで|以内|以下|以上|未満|超え?)?", m =>
++        {
++            if (m.Groups["suffix"].Value is "以上" or "未満" or "超" or "超え")
++                throw new ArgumentException("価格帯は「○円から○円」または「○円から○円まで」で指定してください。");
++            var lower = Amount(m.Groups["lower"].Value);
++            var upper = Amount(m.Groups["upper"].Value);
++            if (lower > upper) throw new ArgumentException("価格帯の下限は上限以下にしてください。");
++            filter = filter with { PriceMin = Math.Max(filter.PriceMin ?? 0, lower), PriceMax = Math.Min(filter.PriceMax ?? decimal.MaxValue, upper) };
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"(?:価格|予算|税抜|希望小売価格)?\s*(?<![\d.,-])(" + PriceNumber + @")\s*円\s*(以下|以内|まで|以上|から|未満|超え?)(?![a-z])", m =>
+         {
+             var amount = Amount(m.Groups[1].Value);
+             var comparison = m.Groups[2].Value;
+@@ -70,9 +83,9 @@ public static class NaturalSearch
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"赤ワイン|白ワイン|ロゼワイン|オレンジワイン", m =>
++        text = Replace(text, @"(?<type>赤|白|ロゼ|オレンジ)ワイン|(?:^|[\s\u001f、,]|の|で|と)(?<type>赤|白|ロゼ|オレンジ)(?=の|で|を|と|[\s\u001f、,。]|$)", m =>
+         {
+-            var type = m.Value.Replace("ワイン", "");
++            var type = m.Groups["type"].Value;
+             if (!string.IsNullOrEmpty(filter.ProductType) && filter.ProductType != type)
+                 throw new ArgumentException("自由文とタイプの条件が異なります。タイプを1つに揃えてください。");
+             filter = filter with { ProductType = type };
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+index e3a4cd9..a985e21 100644
+--- a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+@@ -64,4 +64,78 @@ public class NaturalSearchTests
+         Assert.Equal("赤", result.Filter.ProductType);
+         Assert.Equal("ブルゴーニュ", result.Filter.Text);
+     }
++
++    [Theory]
++    [InlineData("ブルゴーニュの白で15000円以内", "白")]
++    [InlineData("ブルゴーニュの赤で15000円以内", "赤")]
++    [InlineData("ブルゴーニュのロゼで15000円以内", "ロゼ")]
++    [InlineData("ブルゴーニュのオレンジで15000円以内", "オレンジ")]
++    [InlineData("ブルゴーニュ 白 15000円以内", "白")]
++    [InlineData("15000円以内のブルゴーニュの白", "白")]
++    [InlineData("ブルゴーニュの白ワインで15000円以内", "白")]
++    [InlineData("ブルゴーニュの白を15000円以内で", "白")]
++    public void ShortTypeNamesInPhrases(string text, string type)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(type, result.Filter.ProductType);
++        Assert.Equal(15000m, result.Filter.PriceMax);
++        Assert.Equal("ブルゴーニュ", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("白馬")]
++    [InlineData("赤坂")]
++    [InlineData("白い花")]
++    [InlineData("赤い果実")]
++    [InlineData("オレンジピール")]
++    public void ColorInsideNamesIsNotAType(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Null(result.Filter.ProductType);
++        Assert.Equal(text, result.Filter.Text);
++    }
++
++    [Fact] public void ShortTypeConflictsAreRejected() =>
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "ブルゴーニュの白で15000円以内", ProductType: "赤")));
++
++    [Fact] public void BareWhiteIsAType() => Assert.Equal("白", NaturalSearch.Parse(new(Text: "白")).Filter.ProductType);
++
++    [Theory]
++    [InlineData("イタリアの赤ワインで2500円から4000円")]
++    [InlineData("イタリアの赤で２５００円から４０００円まで")]
++    [InlineData("イタリアの赤ワインで2,500円から4,000円以内")]
++    [InlineData("イタリアの赤で2500〜4000円")]
++    [InlineData("イタリアの赤で2500円～4000円")]
++    [InlineData("イタリアの赤で0.25万円から0.4万円")]
++    [InlineData("2500円から4000円のイタリアの赤ワイン")]
++    public void PriceRanges(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal("イタリア", result.Filter.Country);
++        Assert.Equal("赤", result.Filter.ProductType);
++        Assert.Equal(2500m, result.Filter.PriceMin);
++        Assert.Equal(4000m, result.Filter.PriceMax);
++        Assert.Equal("", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("4000円から2500円")]
++    [InlineData("2500円から4000円未満")]
++    [InlineData("2500円から4000円以上")]
++    [InlineData("税込2500円から4000円")]
++    public void InvalidRangesAreRejected(string text) => Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: text)));
++
++    [Fact] public void RangeIntersectsManualFilters()
++    {
++        var result = NaturalSearch.Parse(new(Text: "2500円から4000円", PriceMin: 3000, PriceMax: 3500));
++        Assert.Equal(3000m, result.Filter.PriceMin);
++        Assert.Equal(3500m, result.Filter.PriceMax);
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "2500円から4000円", PriceMin: 5000)));
++    }
++
++    [Fact] public void RangeRetainsResidualKeywords()
++    {
++        var result = NaturalSearch.Parse(new(Text: "イタリアの赤ワインで2500円から4000円 トスカーナ"));
++        Assert.Equal("トスカーナ", result.Filter.Text);
++    }
+ }

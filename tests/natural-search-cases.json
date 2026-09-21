@@ -1,0 +1,10 @@
+[
+  {"name":"Italian price range","manual":{"country":"イタリア","type":"赤","priceMin":2500,"priceMax":4000},"phrases":["イタリアの赤ワインで2500円から4000円","イタリア産の赤で２５００円～４０００円まで","イタリアの赤で2,500-4,000円","国はイタリア、タイプは赤、価格は2500円から4000円","イタリアの赤で二千五百円から四千円","イタリアの赤で2千500円から4千円","2500円から4000円でイタリアの赤を探してください","イタリアの赤を2500円から4000円でお願いします","イタリア産、赤、2500〜4000円","2500円以上4000円以下のイタリアの赤"]},
+  {"name":"Burgundy white budget","manual":{"text":"ブルゴーニュ","type":"白","priceMax":15000},"phrases":["ブルゴーニュの白で15000円以内","ブルゴーニュ産の白ワインで1万5千円以下","産地はブルゴーニュ、白、予算15000円","ブルゴーニュの白で一万五千円以下","ブルゴーニュ地方の白を15000円以下で探してください","予算は1.5万円でブルゴーニュの白"]},
+  {"name":"Champagne exact volume","manual":{"volumeMl":1500,"priceMax":30000},"champagne":true,"phrases":["容量は1500mlのみのシャンパンを3万円以下で探してください","1.5リットルのシャンパーニュを予算3万円でお願いします","シャンパン、150cl、3万円以内","容量:1500ml シャンパーニュ 30,000円以下"]},
+  {"name":"French white availability","manual":{"country":"フランス","type":"白","priceMax":5000,"available":"true"},"phrases":["在庫ありのフランスの白で5000円以下","在庫のあるフランス産の白で5000円以内","フランスの白で5000円以下、在庫有りのみ","フランスの白で5000円以下で在庫があるもの"]},
+  {"name":"Italian sparkling","manual":{"country":"イタリア","priceMax":5000},"sparkling":true,"phrases":["イタリアの泡で5000円以下","イタリアのスパークリングワインで5000円以下"]},
+  {"name":"French rose sparkling","manual":{"country":"フランス","priceMax":5000},"sparkling":true,"color":"ロゼ","phrases":["フランスのロゼのスパークリングで5000円以下","フランスのロゼの泡で5000円以下"]},
+  {"name":"Exclusive upper bound","manual":{"country":"イタリア","type":"赤","priceMin":2500,"priceMax":4000},"below":4000,"phrases":["イタリアの赤で2500円から4000円未満","イタリアの赤で2500円以上4000円より安い"]},
+  {"name":"Exclusive lower bound","manual":{"country":"イタリア","type":"赤","priceMin":2500,"priceMax":4000},"above":2500,"phrases":["イタリアの赤で2500円超4000円以下","イタリアの赤で2500円より高い4000円以下"]}
+]

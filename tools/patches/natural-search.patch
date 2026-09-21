@@ -1,0 +1,301 @@
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+new file mode 100644
+--- /dev/null
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+@@ -0,0 +1,123 @@
++using System.Globalization;
++using System.Text;
++using System.Text.RegularExpressions;
++using CatalogSearch.Application;
++
++namespace CatalogSearch.Infrastructure;
++
++public sealed record NaturalSearchPlan(CatalogFilter Filter, bool Champagne, string[] Conditions);
++
++/// <summary>Converts supported Japanese search phrases into deterministic SQL filters.</summary>
++public static class NaturalSearch
++{
++    private const string Number = @"(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?";
++    private static string Replace(string input, string pattern, MatchEvaluator evaluator) =>
++        Regex.Replace(input, pattern, evaluator, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
++
++    public static NaturalSearchPlan Parse(CatalogFilter input)
++    {
++        if (input.Text?.Length > 200) throw new ArgumentException("検索条件は200文字以内で入力してください。");
++        var text = (input.Text ?? "").Normalize(NormalizationForm.FormKC);
++        var original = text;
++        var filter = input;
++        var conditions = new List<string>();
++        var champagne = false;
++        var parsed = false;
++        const string marker = "\u001f";
++        if (text.Contains(marker)) throw new ArgumentException("検索文に制御文字は使用できません。");
++
++        text = Replace(text, @"(?:容量\s*)?(?<![\d.,-])(" + Number + @")\s*(ml|ミリリットル|cl|l|リットル)(?![a-z])", m =>
++        {
++            var value = Amount(m.Groups[1].Value) * (m.Groups[2].Value.ToLowerInvariant() switch { "l" or "リットル" => 1000, "cl" => 10, _ => 1 });
++            if (value <= 0 || value > int.MaxValue || value != decimal.Truncate(value))
++                throw new ArgumentException("容量は1ml以上の整数で指定してください。");
++            if (filter.VolumeMl is { } existing && existing != value)
++                throw new ArgumentException("自由文と容量条件が異なります。容量を1つに揃えてください。");
++            filter = filter with { VolumeMl = (int)value };
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"(?:価格|予算|税抜|希望小売価格)?\s*(?<![\d.,-])(" + Number + @"(?:万(?:" + Number + @")?|千)?)\s*円\s*(以下|以内|まで|以上|から|未満|超え?)(?![a-z])", m =>
++        {
++            var amount = Amount(m.Groups[1].Value);
++            var comparison = m.Groups[2].Value;
++            if (comparison is "未満" or "超" or "超え")
++                throw new ArgumentException("価格は「○円以下」「○円以上」で指定してください（未満・超には未対応です）。");
++            if (comparison is "以上" or "から") filter = filter with { PriceMin = Math.Max(filter.PriceMin ?? 0, amount) };
++            else filter = filter with { PriceMax = Math.Min(filter.PriceMax ?? decimal.MaxValue, amount) };
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"在庫あり(?:・少量)?(?:のみ)?|在庫がある", _ =>
++        {
++            filter = filter with { AvailableOnly = true };
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"シャンパーニュ(?:地方)?|シャンパン|(?<![a-z])champagne(?![a-z])", _ =>
++        {
++            champagne = true;
++            parsed = true;
++            return marker;
++        });
++
++        text = Replace(text, @"(^|[\s\u001f]|の)(フランス|イタリア|スペイン|ドイツ|日本|アメリカ|チリ|アルゼンチン|オーストラリア|ニュージーランド|南アフリカ)(?:産)?(?=の|で|[\s\u001f]|$)", m =>
++        {
++            var country = m.Groups[2].Value;
++            if (!string.IsNullOrEmpty(filter.Country) && filter.Country != country)
++                throw new ArgumentException("自由文と国の条件が異なります。国を1つに揃えてください。");
++            filter = filter with { Country = country };
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"赤ワイン|白ワイン|ロゼワイン|オレンジワイン", m =>
++        {
++            var type = m.Value.Replace("ワイン", "");
++            if (!string.IsNullOrEmpty(filter.ProductType) && filter.ProductType != type)
++                throw new ArgumentException("自由文とタイプの条件が異なります。タイプを1つに揃えてください。");
++            filter = filter with { ProductType = type };
++            parsed = true;
++            return marker;
++        });
++
++        if (parsed)
++        {
++            if (Regex.IsMatch(original, @"税込|仕入(?:れ)?価格|卸価格|以外|除く|ではない|または|もしくは|あるいは"))
++                throw new ArgumentException("税込・仕入価格や除外・選択条件には未対応です。税抜希望小売価格と、すべて満たす条件で検索してください。");
++            // Only remove particles at extracted-condition boundaries, never inside product names.
++            var parts = text.Split(marker).Select(part =>
++            {
++                var value = part.Trim(' ', '、', '。', ',');
++                value = Regex.Replace(value, @"\s*(?:を探して(?:ください)?|を検索して(?:ください)?|を検索|を探す|をお願いします)$", "");
++                value = Regex.Replace(value, @"^(?:の|で|かつ|と|を)\s*", "");
++                value = Regex.Replace(value, @"\s*(?:の|で|かつ|と|を)$", "");
++                return value.Trim();
++            }).Where(part => part.Length > 0);
++            filter = filter with { Text = string.Join(" ", parts) };
++        }
++        // Plain keyword/SKU searches retain their original spelling and wildcard escaping.
++        if (filter.PriceMin > filter.PriceMax) throw new ArgumentException("価格条件が矛盾しています。下限を上限以下にしてください。");
++        if (filter.VolumeMl is { } volume) conditions.Add($"容量 {volume}ml");
++        if (filter.PriceMin is { } min) conditions.Add($"税抜希望小売 {min.ToString("#,0.##", CultureInfo.InvariantCulture)}円以上");
++        if (filter.PriceMax is { } max) conditions.Add($"税抜希望小売 {max.ToString("#,0.##", CultureInfo.InvariantCulture)}円以下");
++        if (champagne) conditions.Add("産地 シャンパーニュ（発泡）");
++        if (!string.IsNullOrWhiteSpace(filter.Region)) conditions.Add($"産地 {filter.Region}");
++        if (!string.IsNullOrWhiteSpace(filter.Country)) conditions.Add($"国 {filter.Country}");
++        if (!string.IsNullOrWhiteSpace(filter.ProductType)) conditions.Add($"タイプ {filter.ProductType}");
++        if (!string.IsNullOrWhiteSpace(filter.VintageRaw)) conditions.Add($"年 {filter.VintageRaw}");
++        if (filter.AvailableOnly) conditions.Add("在庫あり・少量のみ");
++        if (!string.IsNullOrWhiteSpace(filter.Text)) conditions.Add($"キーワード {filter.Text}");
++        return new(filter, champagne, conditions.Distinct().ToArray());
++    }
++
++    private static decimal Amount(string text)
++    {
++        text = text.Replace(",", "");
++        var parts = text.Split('万');
++        if (parts.Length == 2) return checked(Amount(parts[0]) * 10000 + (parts[1].Length == 0 ? 0 : Amount(parts[1])));
++        if (text.EndsWith('千')) return checked(Amount(text[..^1]) * 1000);
++        if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) || value > 1_000_000_000)
++            throw new ArgumentException("数値が大きすぎます。10億以下で指定してください。");
++        return value;
++    }
++}
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+@@ -7,11 +7,14 @@
+ {
+     public async Task<IReadOnlyList<CatalogResult>> SearchAsync(CatalogFilter filter, CancellationToken ct = default)
+     {
++        var natural = NaturalSearch.Parse(filter);
++        filter = natural.Filter;
+         if (filter.Limit is < 1 or > 2000 || filter.PriceMax < 0 || filter.PriceMin < 0 || filter.PriceMin > filter.PriceMax || filter.VolumeMl <= 0) throw new ArgumentException("Invalid search limits.");
+         var query = db.SupplierProducts.AsNoTracking();
+         if (!string.IsNullOrWhiteSpace(filter.Country)) query = query.Where(x => x.Country == filter.Country);
+         if (!string.IsNullOrWhiteSpace(filter.Region)) query = query.Where(x => x.Region == filter.Region);
+         if (!string.IsNullOrWhiteSpace(filter.ProductType)) query = query.Where(x => x.ProductType == filter.ProductType);
++        if (natural.Champagne) query = query.Where(x => (x.Region == "シャンパーニュ" || x.Region == "シャンパーニュ地方" || x.Region == "Champagne") && (x.ProductType.Contains("泡") || x.ProductType == "スパークリング"));
+         if (filter.VolumeMl is not null) query = query.Where(x => x.VolumeMl == filter.VolumeMl);
+         if (!string.IsNullOrWhiteSpace(filter.VintageRaw)) query = query.Where(x => x.VintageRaw == filter.VintageRaw);
+         if (filter.PriceMin is not null) query = query.Where(x => !x.TaxIncluded && x.CurrentPrice != null && x.CurrentPrice >= filter.PriceMin);
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/Program.cs b/catalog-search-poc/src/CatalogSearch.Web/Program.cs
+--- a/catalog-search-poc/src/CatalogSearch.Web/Program.cs
++++ b/catalog-search-poc/src/CatalogSearch.Web/Program.cs
+@@ -8,7 +8,7 @@
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ // This milestone is a local demo. Remote hosting requires authentication in a later slice.
+-builder.WebHost.UseUrls("http://127.0.0.1:55440");
++builder.WebHost.UseUrls(builder.Configuration["urls"] ?? "http://127.0.0.1:55440");
+ builder.Services.AddOpenApi();
+ builder.WebHost.ConfigureKestrel(options=>options.Limits.MaxRequestBodySize=21_000_000);
+ builder.Services.AddHostedService<InboxWatcher>();
+@@ -78,9 +78,15 @@
+         volume = parsed;
+     }
+     if (request.Query.Any(x => x.Value.ToString().Length > 200)) return Results.BadRequest(new { error = "検索条件は200文字以内で入力してください。" });
+-    var rows = await new CatalogQuery(db).SearchAsync(new(Value("country"), Value("region"), Value("type"), max,
+-        Value("available") == "true", Value("text"), 2000, min, volume, Value("vintage")), ct);
+-    return Results.Ok(new { rows, capped = rows.Count == 2000 });
++    var filter = new CatalogFilter(Value("country"), Value("region"), Value("type"), max,
++        Value("available") == "true", Value("text"), 2000, min, volume, Value("vintage"));
++    try
++    {
++        var interpretation = NaturalSearch.Parse(filter);
++        var rows = await new CatalogQuery(db).SearchAsync(filter, ct);
++        return Results.Ok(new { rows, capped = rows.Count == 2000, conditions = interpretation.Conditions });
++    }
++    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+ });
+ app.MapGet("/api/evidence/{sourceId:guid}/{sku}", async (Guid sourceId, string sku, CatalogSearchDbContext db, CancellationToken ct) =>
+ {
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+@@ -2,8 +2,8 @@
+ <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>商品カタログ検索</title><link rel="stylesheet" href="/catalog.css"><script defer src="/catalog-sort.js"></script><script defer src="/catalog.js"></script></head>
+ <body><header><div class="brand">酒道楽 <span>商品カタログ</span></div><span class="mode">このPCでの動作確認</span></header>
+ <main><nav class="workspace-nav"><a href="/">商品検索</a><a href="/workspace.html">取込・横断検索・商品確認</a></nav><div class="intro"><div><p class="eyebrow">SUPPLIER CATALOG</p><h1>商品カタログ検索</h1><p>価格・在庫で絞り込み、元の在庫表まで確認できます。</p></div><p id="total" class="total">商品データを確認中</p></div>
+-<section aria-labelledby="filter-title"><h2 id="filter-title">検索条件</h2><form id="search"><div class="filters"><label class="wide">商品名・生産者・産地<input name="text" id="text" placeholder="例：ブルゴーニュ、Pinot Noir" maxlength="200"></label><label>国<select name="country" id="country"><option value="">すべて</option></select></label><label>産地<select name="region" id="region"><option value="">すべて</option></select></label><label>タイプ<select name="type" id="type"><option value="">すべて</option></select></label><label>容量<select name="volumeMl" id="volumeMl"><option value="">すべて</option></select></label><label>ヴィンテージ<select name="vintage" id="vintage"><option value="">すべて</option></select></label><label>希望小売価格の下限（税抜）<div class="price"><input name="priceMin" id="priceMin" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label><label>希望小売価格の上限（税抜）<div class="price"><input name="priceMax" id="priceMax" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label></div>
+-<div class="actions"><label class="check"><input type="checkbox" id="available" name="available">在庫あり・少量のみ</label><div><button type="button" id="example">確認用の条件を入れる</button><button type="reset" id="reset">条件をクリア</button><button class="primary" type="submit">検索する</button></div></div></form><p class="hint">価格の下限または上限を指定すると、金額未設定・税込の商品は対象外です。空白で区切ったキーワードをすべて含む商品を検索します（英字の大小は区別しません）。意味検索は今後対応予定です。</p></section>
+-<div id="error" role="alert" hidden></div><section class="results" aria-labelledby="results-title"><div class="result-head"><h2 id="results-title">検索結果 <span id="count" aria-live="polite"></span></h2><span>希望小売価格 / 在庫表の記載時点</span></div><p id="sort-status" class="hint" role="status">列タイトルで昇順・降順を切り替えられます。</p><p id="empty" hidden>該当する商品はありません。条件を減らして再検索してください。</p><div class="table-wrap"><table id="search-results"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="product">商品<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="producer">生産者<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="country">国<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="region">産地<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="vintage">年<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="volume">容量<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="price">希望小売価格<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="stock">在庫<span aria-hidden="true"> ↕</span></button></th><th scope="col">取込元</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pager"><button id="prev">前へ</button><span id="page"></span><button id="next">次へ</button></div></section>
++<section aria-labelledby="filter-title"><h2 id="filter-title">検索条件</h2><form id="search"><div class="filters"><label class="wide">自由文検索・商品名・生産者<input name="text" id="text" placeholder="例：容量1500mlの３万円以下のシャンパーニュ" maxlength="200"></label><label>国<select name="country" id="country"><option value="">すべて</option></select></label><label>産地<select name="region" id="region"><option value="">すべて</option></select></label><label>タイプ<select name="type" id="type"><option value="">すべて</option></select></label><label>容量<select name="volumeMl" id="volumeMl"><option value="">すべて</option></select></label><label>ヴィンテージ<select name="vintage" id="vintage"><option value="">すべて</option></select></label><label>希望小売価格の下限（税抜）<div class="price"><input name="priceMin" id="priceMin" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label><label>希望小売価格の上限（税抜）<div class="price"><input name="priceMax" id="priceMax" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label></div>
++<div class="actions"><label class="check"><input type="checkbox" id="available" name="available">在庫あり・少量のみ</label><div><button type="button" id="example">確認用の条件を入れる</button><button type="reset" id="reset">条件をクリア</button><button class="primary" type="submit">検索する</button></div></div></form><p class="hint">価格の下限または上限を指定すると、金額未設定・税込の商品は対象外です。空白で区切ったキーワードをすべて含む商品を検索します（英字の大小は区別しません）。自由文では容量（ml・L）、価格（円・万円の以下／以上）、在庫あり、国、赤・白などのワインタイプ、シャンパーニュを読み取ります。その他の語はキーワード検索します。詳細条件もすべて満たす商品が対象です。</p></section>
++<div id="error" role="alert" hidden></div><section class="results" aria-labelledby="results-title"><div class="result-head"><h2 id="results-title">検索結果 <span id="count" aria-live="polite"></span></h2><span>希望小売価格 / 在庫表の記載時点</span></div><p id="interpreted" class="hint" role="status"></p><p id="sort-status" class="hint" role="status">列タイトルで昇順・降順を切り替えられます。</p><p id="empty" hidden>該当する商品はありません。条件を減らして再検索してください。</p><div class="table-wrap"><table id="search-results"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="product">商品<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="producer">生産者<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="country">国<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="region">産地<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="vintage">年<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="volume">容量<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="price">希望小売価格<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="stock">在庫<span aria-hidden="true"> ↕</span></button></th><th scope="col">取込元</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pager"><button id="prev">前へ</button><span id="page"></span><button id="next">次へ</button></div></section>
+ <footer>仕入先在庫リスト · 資料の日付は取込元で確認 · 独立した確認用データ · iWSET・酒道楽への書き戻しなし</footer></main>
+ <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title">取込元の確認</h2><button id="close">閉じる</button></div><div id="detail-body"></div></dialog><div id="busy" hidden role="status" aria-live="polite"><div>検索しています…</div></div></body></html>
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+@@ -26,7 +26,7 @@
+  }
+  $('page').textContent=data.length?`${page*size+1}–${Math.min((page+1)*size,data.length)} / ${data.length}件`:'0件';$('prev').disabled=page===0;$('next').disabled=(page+1)*size>=data.length;
+ }
+-async function search(){error('');if($('priceMin').value!==''&&$('priceMax').value!==''&&Number($('priceMin').value)>Number($('priceMax').value)){error('価格の下限は上限以下にしてください。');return;}$('busy').hidden=false;$('search').inert=true;try{const query=new URLSearchParams(new FormData($('search')));query.set('available',$('available').checked?'true':'false');const result=await json('/api/search?'+query);data=result.rows;applySort();page=0;$('count').textContent=`${data.length.toLocaleString()}件${result.capped?'（先頭2,000件）':''}`;render()}catch(e){error(e.message);data=[];page=0;$('count').textContent='取得できません';render();$('empty').hidden=true}finally{$('busy').hidden=true;$('search').inert=false}}
++async function search(){error('');$('interpreted').textContent='';if($('priceMin').value!==''&&$('priceMax').value!==''&&Number($('priceMin').value)>Number($('priceMax').value)){error('価格の下限は上限以下にしてください。');return;}$('busy').hidden=false;$('search').inert=true;try{const query=new URLSearchParams(new FormData($('search')));query.set('available',$('available').checked?'true':'false');const result=await json('/api/search?'+query);data=result.rows;$('interpreted').textContent=result.conditions?.length?'検索条件：'+result.conditions.join(' ／ '):'検索条件：すべて';applySort();page=0;$('count').textContent=`${data.length.toLocaleString()}件${result.capped?'（先頭2,000件）':''}`;render()}catch(e){error(e.message);data=[];page=0;$('count').textContent='取得できません';render();$('empty').hidden=true}finally{$('busy').hidden=true;$('search').inert=false}}
+ async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['希望小売の原表記',row.PriceRaw],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+ $('search').addEventListener('submit',e=>{e.preventDefault();search()});$('search').addEventListener('reset',()=>setTimeout(search,0));$('example').addEventListener('click',()=>{$('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';$('country').value='フランス';$('region').value='ブルゴーニュ';$('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
+ (async()=>{try{const options=await json('/api/options');$('total').textContent=`登録商品 ${options.total.toLocaleString()}件`;for(const [id,key]of [['country','countries'],['region','regions'],['type','types'],['volumeMl','volumes'],['vintage','vintages']])for(const value of options[key])if(value){const o=el('option',id==='volumeMl'?value+' ml':value);o.value=value;$(id).append(o)}await search()}catch(e){$('total').textContent='接続できません';error(e.message)}})();
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+new file mode 100644
+--- /dev/null
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+@@ -0,0 +1,67 @@
++using CatalogSearch.Application;
++using CatalogSearch.Infrastructure;
++using Xunit;
++
++namespace CatalogSearch.Domain.Tests;
++
++public class NaturalSearchTests
++{
++    [Theory]
++    [InlineData("容量1500mlの３万円以下のシャンパーニュ")]
++    [InlineData("シャンパンで1.5L、30,000円以内")]
++    [InlineData("１５００ｍｌの３００００円までのＣｈａｍｐａｇｎｅを探してください")]
++    [InlineData("150cl 3万円以下 シャンパーニュ地方")]
++    public void RequestedSearch(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(1500, result.Filter.VolumeMl);
++        Assert.Equal(30000m, result.Filter.PriceMax);
++        Assert.True(result.Champagne);
++        Assert.Equal("", result.Filter.Text);
++    }
++
++    [Fact] public void CombinesPriceAndAvailabilityAndKeepsProducer()
++    {
++        var result = NaturalSearch.Parse(new(Text: "在庫ありの1500mlの1万5000円以上3万円以下のシャンパーニュ ボランジェ"));
++        Assert.Equal(15000m, result.Filter.PriceMin);
++        Assert.Equal(30000m, result.Filter.PriceMax);
++        Assert.True(result.Filter.AvailableOnly);
++        Assert.Equal("ボランジェ", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("Pinot Noir")]
++    [InlineData("FINESSE-0001")]
++    [InlineData("ルイのワイン")]
++    [InlineData("a%_\\")]
++    public void PreservesPlainKeywords(string text) => Assert.Equal(text, NaturalSearch.Parse(new(Text: text)).Filter.Text);
++
++    [Theory]
++    [InlineData("1500ml", 750, null, null)]
++    [InlineData("1500ml 750ml", null, null, null)]
++    [InlineData("3万円以下", null, 40000, null)]
++    [InlineData("4万円以上", null, null, 30000)]
++    [InlineData("0ml", null, null, null)]
++    [InlineData("0.0001L", null, null, null)]
++    [InlineData("税込3万円以下", null, null, null)]
++    [InlineData("仕入価格3万円以下", null, null, null)]
++    [InlineData("3万円未満", null, null, null)]
++    [InlineData("シャンパーニュ以外", null, null, null)]
++    public void RejectsConflictsAndUnsupportedConditions(string text, int? volume, int? min, int? max) =>
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: text, VolumeMl: volume, PriceMin: min, PriceMax: max)));
++
++    [Fact] public void IntersectsManualPrices()
++    {
++        var result = NaturalSearch.Parse(new(Text: "1万円以上3万円以下", PriceMin: 15000, PriceMax: 25000));
++        Assert.Equal(15000m, result.Filter.PriceMin);
++        Assert.Equal(25000m, result.Filter.PriceMax);
++    }
++
++    [Fact] public void CountryTypeAndRemainingRegion()
++    {
++        var result = NaturalSearch.Parse(new(Text: "フランスのブルゴーニュの750mlの5000円以下の赤ワイン"));
++        Assert.Equal("フランス", result.Filter.Country);
++        Assert.Equal("赤", result.Filter.ProductType);
++        Assert.Equal("ブルゴーニュ", result.Filter.Text);
++    }
++}
+diff --git a/catalog-search-poc/CODEX-HANDOFF.md b/catalog-search-poc/CODEX-HANDOFF.md
+--- a/catalog-search-poc/CODEX-HANDOFF.md
++++ b/catalog-search-poc/CODEX-HANDOFF.md
+@@ -44,7 +44,11 @@
+ 
+ Aggregate verification is stored in `artifacts/wine-to-style-import-report.json`.
+ 
+-## Current status (2026-09-20)
++## Current status (2026-09-21)
++
++自由文検索を追加。容量ml/L/cl、全角数字、円/万円/千円の以上・以下、在庫あり、国、ワインタイプ、シャンパーニュを決定論的にSQL条件へ変換。画面に適用条件を表示し、詳細条件との容量・国・タイプ矛盾は400、価格は積集合。税込・仕入価格・除外/OR・未満/超はエラー。既存キーワードは維持。DB/schema変更なし。本番未反映。自動65件成功・外部資料/専用DB依存7件skip、うち新規21件成功。LIPS tests/verify-natural-search.cjsで実データ/API/ブラウザ19項目成功、要求例12件（ローカル登録7525件時点）。
++
++## Previous status (2026-09-20)
+ 
+ LUC Excel取込を追加。シート内容でWTS/LUCを自動判別し、画面・CLI・監視に対応。LUC実2902件をローカル利用者DBに保存済み、WTSと合計3963件。◎は在庫あり・数量null（60本以上）。自動48・UI134・監視4項目成功。原本不変、schema変更なし。docs/LUC-IMPORT-GUIDE.md参照。WTS受入テストはWTS専用DBを使う。先頭2000件表示の上限は維持し、全件ページングはAPP-OPSで後続管理。
+ 
+@@ -68,6 +72,8 @@
+ 
+ ## Next work — execute in this order
+ 
++自由文検索: ローカル確認URL http://127.0.0.1:55442 。Dell反映には、現行本番ソースへ差分を統合したDockerパッケージの検証・SHA確認・管理者承認が必要。検証用コピーには既存の仕入先対応等の未コミット変更を含むため、そのまま本番配布しない。LIPS docs/NATURAL-SEARCH.md参照。
++
+ 対応順・状態・依存関係・完了条件の正本は [残項目台帳](../docs/open-items.md) の `EPIC-CATALOG-NEXT-20260917` とその子タスク11件。次回は台帳を先に確認する。
+ 
+ 1. INPUT-CONTRACT: 実データ・利用者・認証方式等の条件確定。

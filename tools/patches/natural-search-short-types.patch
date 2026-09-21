@@ -1,0 +1,60 @@
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+index ba5356e..e99651d 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+@@ -70,9 +70,9 @@ public static class NaturalSearch
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"赤ワイン|白ワイン|ロゼワイン|オレンジワイン", m =>
++        text = Replace(text, @"(?<type>赤|白|ロゼ|オレンジ)ワイン|(?:^|[\s\u001f、,]|の|で|と)(?<type>赤|白|ロゼ|オレンジ)(?=の|で|を|と|[\s\u001f、,。]|$)", m =>
+         {
+-            var type = m.Value.Replace("ワイン", "");
++            var type = m.Groups["type"].Value;
+             if (!string.IsNullOrEmpty(filter.ProductType) && filter.ProductType != type)
+                 throw new ArgumentException("自由文とタイプの条件が異なります。タイプを1つに揃えてください。");
+             filter = filter with { ProductType = type };
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+index e3a4cd9..acf1fe0 100644
+--- a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+@@ -64,4 +64,39 @@ public class NaturalSearchTests
+         Assert.Equal("赤", result.Filter.ProductType);
+         Assert.Equal("ブルゴーニュ", result.Filter.Text);
+     }
++
++    [Theory]
++    [InlineData("ブルゴーニュの白で15000円以内", "白")]
++    [InlineData("ブルゴーニュの赤で15000円以内", "赤")]
++    [InlineData("ブルゴーニュのロゼで15000円以内", "ロゼ")]
++    [InlineData("ブルゴーニュのオレンジで15000円以内", "オレンジ")]
++    [InlineData("ブルゴーニュ 白 15000円以内", "白")]
++    [InlineData("15000円以内のブルゴーニュの白", "白")]
++    [InlineData("ブルゴーニュの白ワインで15000円以内", "白")]
++    [InlineData("ブルゴーニュの白を15000円以内で", "白")]
++    public void ShortTypeNamesInPhrases(string text, string type)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(type, result.Filter.ProductType);
++        Assert.Equal(15000m, result.Filter.PriceMax);
++        Assert.Equal("ブルゴーニュ", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("白馬")]
++    [InlineData("赤坂")]
++    [InlineData("白い花")]
++    [InlineData("赤い果実")]
++    [InlineData("オレンジピール")]
++    public void ColorInsideNamesIsNotAType(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Null(result.Filter.ProductType);
++        Assert.Equal(text, result.Filter.Text);
++    }
++
++    [Fact] public void ShortTypeConflictsAreRejected() =>
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "ブルゴーニュの白で15000円以内", ProductType: "赤")));
++
++    [Fact] public void BareWhiteIsAType() => Assert.Equal("白", NaturalSearch.Parse(new(Text: "白")).Filter.ProductType);
+ }

@@ -1,0 +1,469 @@
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+index 5168416..1803b77 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+@@ -13,13 +13,19 @@ public sealed class CatalogQuery(CatalogSearchDbContext db)
+         var query = db.SupplierProducts.AsNoTracking();
+         if (!string.IsNullOrWhiteSpace(filter.Country)) query = query.Where(x => x.Country == filter.Country);
+         if (!string.IsNullOrWhiteSpace(filter.Region)) query = query.Where(x => x.Region == filter.Region);
+-        if (!string.IsNullOrWhiteSpace(filter.ProductType)) query = query.Where(x => x.ProductType == filter.ProductType);
++        if (!string.IsNullOrWhiteSpace(filter.ProductType))
++            query = natural.Sparkling || natural.Champagne
++                ? query.Where(x => x.ProductType.Contains(filter.ProductType))
++                : query.Where(x => x.ProductType == filter.ProductType);
++        if (natural.Sparkling) query = query.Where(x => x.ProductType.Contains("泡") || x.ProductType == "スパークリング");
+         if (natural.Champagne) query = query.Where(x => (x.Region == "シャンパーニュ" || x.Region == "シャンパーニュ地方" || x.Region == "Champagne") && (x.ProductType.Contains("泡") || x.ProductType == "スパークリング"));
+         if (filter.VolumeMl is not null) query = query.Where(x => x.VolumeMl == filter.VolumeMl);
+         if (!string.IsNullOrWhiteSpace(filter.VintageRaw)) query = query.Where(x => x.VintageRaw == filter.VintageRaw);
+         if (filter.PriceMin is not null) query = query.Where(x => !x.TaxIncluded && x.CurrentPrice != null && x.CurrentPrice >= filter.PriceMin);
+         // The milestone asks for tax-exclusive reference retail prices; do not mix tax bases.
+         if (filter.PriceMax is not null) query = query.Where(x => !x.TaxIncluded && x.CurrentPrice != null && x.CurrentPrice <= filter.PriceMax);
++        if (natural.MinExclusive) query = query.Where(x => x.CurrentPrice > filter.PriceMin);
++        if (natural.MaxExclusive) query = query.Where(x => x.CurrentPrice < filter.PriceMax);
+         if (filter.AvailableOnly) query = query.Where(x => x.CurrentInventoryStatus == InventoryStatus.InStock || x.CurrentInventoryStatus == InventoryStatus.LowStock);
+         if (filter.Text?.Length > 200) throw new ArgumentException("Search text is too long.");
+         foreach (var term in SearchTerms.Parse(filter.Text))
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+index ba5356e..7b10e64 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs
+@@ -5,12 +5,14 @@ using CatalogSearch.Application;
+ 
+ namespace CatalogSearch.Infrastructure;
+ 
+-public sealed record NaturalSearchPlan(CatalogFilter Filter, bool Champagne, string[] Conditions);
++public sealed record NaturalSearchPlan(CatalogFilter Filter, bool Champagne, string[] Conditions, bool MinExclusive = false, bool MaxExclusive = false, bool Sparkling = false);
+ 
+ /// <summary>Converts supported Japanese search phrases into deterministic SQL filters.</summary>
+ public static class NaturalSearch
+ {
+     private const string Number = @"(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?";
++    private const string PriceNumber = "(?:" + Number + "万(?:" + Number + "千)?(?:" + Number + ")?|" + Number + "千(?:" + Number + ")?|" + Number + @"|[零〇一二三四五六七八九十百千万]+)";
++    private const string PriceLabel = @"(?:(?:希望小売価格|価格|予算|税抜)(?:は|が|:)?\s*)?";
+     private static string Replace(string input, string pattern, MatchEvaluator evaluator) =>
+         Regex.Replace(input, pattern, evaluator, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+ 
+@@ -22,11 +24,25 @@ public static class NaturalSearch
+         var filter = input;
+         var conditions = new List<string>();
+         var champagne = false;
++        var sparkling = false;
++        var minExclusive = false;
++        var maxExclusive = false;
++        var regionTerms = new List<string>();
+         var parsed = false;
+         const string marker = "\u001f";
+         if (text.Contains(marker)) throw new ArgumentException("検索文に制御文字は使用できません。");
++        void Lower(decimal value, bool exclusive = false)
++        {
++            if (filter.PriceMin is null || value > filter.PriceMin) { filter = filter with { PriceMin = value }; minExclusive = exclusive; }
++            else if (value == filter.PriceMin) minExclusive |= exclusive;
++        }
++        void Upper(decimal value, bool exclusive = false)
++        {
++            if (filter.PriceMax is null || value < filter.PriceMax) { filter = filter with { PriceMax = value }; maxExclusive = exclusive; }
++            else if (value == filter.PriceMax) maxExclusive |= exclusive;
++        }
+ 
+-        text = Replace(text, @"(?:容量\s*)?(?<![\d.,-])(" + Number + @")\s*(ml|ミリリットル|cl|l|リットル)(?![a-z])", m =>
++        text = Replace(text, @"(?:容量(?:は|が|:)?\s*)?(?<![\d.,-])(" + Number + @")\s*(ml|ミリリットル|cl|l|リットル)(?![a-z])(?:のみ|だけ)?", m =>
+         {
+             var value = Amount(m.Groups[1].Value) * (m.Groups[2].Value.ToLowerInvariant() switch { "l" or "リットル" => 1000, "cl" => 10, _ => 1 });
+             if (value <= 0 || value > int.MaxValue || value != decimal.Truncate(value))
+@@ -37,23 +53,47 @@ public static class NaturalSearch
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"(?:価格|予算|税抜|希望小売価格)?\s*(?<![\d.,-])(" + Number + @"(?:万(?:" + Number + @")?|千)?)\s*円\s*(以下|以内|まで|以上|から|未満|超え?)(?![a-z])", m =>
++        // Parse the complete range before consuming a single-ended '円から' condition.
++        text = Replace(text, PriceLabel + @"(?<![\d.,-])(?<lower>" + PriceNumber + @")\s*(?:円\s*)?(?:から|[~〜～-])\s*(?<upper>" + PriceNumber + @")\s*円\s*(?<suffix>まで|以内|以下|以上|未満|超え?)?", m =>
++        {
++            if (m.Groups["suffix"].Value is "以上" or "超" or "超え")
++                throw new ArgumentException("価格帯は「○円から○円」または「○円から○円まで」で指定してください。");
++            var lower = Amount(m.Groups["lower"].Value);
++            var upper = Amount(m.Groups["upper"].Value);
++            if (lower > upper) throw new ArgumentException("価格帯の下限は上限以下にしてください。");
++            Lower(lower);
++            Upper(upper, m.Groups["suffix"].Value == "未満");
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, PriceLabel + @"(?<![\d.,-])(" + PriceNumber + @")\s*円\s*(以下|以内|まで|以上|から|未満|超え?|より安い|より高い)(?![a-z])", m =>
+         {
+             var amount = Amount(m.Groups[1].Value);
+             var comparison = m.Groups[2].Value;
+-            if (comparison is "未満" or "超" or "超え")
+-                throw new ArgumentException("価格は「○円以下」「○円以上」で指定してください（未満・超には未対応です）。");
+-            if (comparison is "以上" or "から") filter = filter with { PriceMin = Math.Max(filter.PriceMin ?? 0, amount) };
+-            else filter = filter with { PriceMax = Math.Min(filter.PriceMax ?? decimal.MaxValue, amount) };
++            if (comparison is "以上" or "から" or "超" or "超え" or "より高い") Lower(amount, comparison is not ("以上" or "から"));
++            else Upper(amount, comparison is "未満" or "より安い");
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"予算(?:は|が|:)?\s*(" + PriceNumber + @")\s*円", m =>
++        {
++            Upper(Amount(m.Groups[1].Value));
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"在庫あり(?:・少量)?(?:のみ)?|在庫がある", _ =>
++        text = Replace(text, @"(?:在庫あり(?:・少量)?|在庫がある|在庫のある|在庫有り?)(?:のみ|だけ)?", _ =>
+         {
+             filter = filter with { AvailableOnly = true };
+             parsed = true;
+             return marker;
+         });
++
++        text = Replace(text, @"スパークリング(?:ワイン)?|(?:^|[\s\u001f、,]|の|で|と)(?:泡|発泡性ワイン)(?=の|で|を|と|[\s\u001f、,。]|$)", _ =>
++        {
++            sparkling = true;
++            parsed = true;
++            return marker;
++        });
+         text = Replace(text, @"シャンパーニュ(?:地方)?|シャンパン|(?<![a-z])champagne(?![a-z])", _ =>
+         {
+             champagne = true;
+@@ -61,7 +101,7 @@ public static class NaturalSearch
+             return marker;
+         });
+ 
+-        text = Replace(text, @"(^|[\s\u001f]|の)(フランス|イタリア|スペイン|ドイツ|日本|アメリカ|チリ|アルゼンチン|オーストラリア|ニュージーランド|南アフリカ)(?:産)?(?=の|で|[\s\u001f]|$)", m =>
++        text = Replace(text, @"(^|[\s\u001f、,]|の|で|と)(?:国(?:は|:)?\s*)?(フランス|イタリア|スペイン|ドイツ|日本|アメリカ|チリ|アルゼンチン|オーストラリア|ニュージーランド|南アフリカ|ポルトガル|オーストリア|ギリシャ)(?:産)?(?=の|で|[\s\u001f、,。]|$)", m =>
+         {
+             var country = m.Groups[2].Value;
+             if (!string.IsNullOrEmpty(filter.Country) && filter.Country != country)
+@@ -70,9 +110,15 @@ public static class NaturalSearch
+             parsed = true;
+             return marker;
+         });
+-        text = Replace(text, @"赤ワイン|白ワイン|ロゼワイン|オレンジワイン", m =>
++        text = Replace(text, @"(?:^|[\s\u001f、,]|の|で|と)(?:産地(?:は|:)?\s*)?(ブルゴーニュ|ボルドー|トスカーナ|ピエモンテ|ロワール|アルザス|ローヌ|シチリア)(?:地方|産)?(?=の|で|[\s\u001f、,。]|$)", m =>
+         {
+-            var type = m.Value.Replace("ワイン", "");
++            regionTerms.Add(m.Groups[1].Value);
++            parsed = true;
++            return marker;
++        });
++        text = Replace(text, @"(?:タイプ(?:は|:)?\s*)?(?<type>赤|白|ロゼ|オレンジ)ワイン|(?:^|[\s\u001f、,]|の|で|と)(?:タイプ(?:は|:)?\s*)?(?<type>赤|白|ロゼ|オレンジ)(?=の|で|を|と|[\s\u001f、,。]|$)", m =>
++        {
++            var type = m.Groups["type"].Value;
+             if (!string.IsNullOrEmpty(filter.ProductType) && filter.ProductType != type)
+                 throw new ArgumentException("自由文とタイプの条件が異なります。タイプを1つに揃えてください。");
+             filter = filter with { ProductType = type };
+@@ -88,34 +134,45 @@ public static class NaturalSearch
+             var parts = text.Split(marker).Select(part =>
+             {
+                 var value = part.Trim(' ', '、', '。', ',');
+-                value = Regex.Replace(value, @"\s*(?:を探して(?:ください)?|を検索して(?:ください)?|を検索|を探す|をお願いします)$", "");
+-                value = Regex.Replace(value, @"^(?:の|で|かつ|と|を)\s*", "");
+-                value = Regex.Replace(value, @"\s*(?:の|で|かつ|と|を)$", "");
++                value = Regex.Replace(value, @"\s*(?:を|で)?(?:探して(?:ください)?|検索して(?:ください)?|検索|探す|お願いします)$", "");
++                if (value is "ワイン" or "商品" or "もの") return "";
++                value = Regex.Replace(value, @"^(?:(?:の|で|かつ|と|を|のみ|だけ)\s*)+", "");
++                value = Regex.Replace(value, @"\s*(?:(?:の|で|かつ|と|を|のみ|だけ)\s*)+$", "");
++                if (value is "ワイン" or "商品" or "もの") return "";
+                 return value.Trim();
+             }).Where(part => part.Length > 0);
+-            filter = filter with { Text = string.Join(" ", parts) };
++            filter = filter with { Text = string.Join(" ", regionTerms.Distinct().Concat(parts)) };
+         }
+         // Plain keyword/SKU searches retain their original spelling and wildcard escaping.
+-        if (filter.PriceMin > filter.PriceMax) throw new ArgumentException("価格条件が矛盾しています。下限を上限以下にしてください。");
++        if (filter.PriceMin > filter.PriceMax || (filter.PriceMin is not null && filter.PriceMin == filter.PriceMax && (minExclusive || maxExclusive))) throw new ArgumentException("価格条件が矛盾しています。下限と上限を確認してください。");
+         if (filter.VolumeMl is { } volume) conditions.Add($"容量 {volume}ml");
+-        if (filter.PriceMin is { } min) conditions.Add($"税抜希望小売 {min.ToString("#,0.##", CultureInfo.InvariantCulture)}円以上");
+-        if (filter.PriceMax is { } max) conditions.Add($"税抜希望小売 {max.ToString("#,0.##", CultureInfo.InvariantCulture)}円以下");
++        if (filter.PriceMin is { } min) conditions.Add($"税抜希望小売 {min.ToString("#,0.##", CultureInfo.InvariantCulture)}円{(minExclusive ? "超" : "以上")}");
++        if (filter.PriceMax is { } max) conditions.Add($"税抜希望小売 {max.ToString("#,0.##", CultureInfo.InvariantCulture)}円{(maxExclusive ? "未満" : "以下")}");
+         if (champagne) conditions.Add("産地 シャンパーニュ（発泡）");
++        if (sparkling) conditions.Add("タイプ 発泡");
+         if (!string.IsNullOrWhiteSpace(filter.Region)) conditions.Add($"産地 {filter.Region}");
+         if (!string.IsNullOrWhiteSpace(filter.Country)) conditions.Add($"国 {filter.Country}");
+         if (!string.IsNullOrWhiteSpace(filter.ProductType)) conditions.Add($"タイプ {filter.ProductType}");
+         if (!string.IsNullOrWhiteSpace(filter.VintageRaw)) conditions.Add($"年 {filter.VintageRaw}");
+         if (filter.AvailableOnly) conditions.Add("在庫あり・少量のみ");
+         if (!string.IsNullOrWhiteSpace(filter.Text)) conditions.Add($"キーワード {filter.Text}");
+-        return new(filter, champagne, conditions.Distinct().ToArray());
++        return new(filter, champagne, conditions.Distinct().ToArray(), minExclusive, maxExclusive, sparkling);
+     }
+ 
+     private static decimal Amount(string text)
+     {
+         text = text.Replace(",", "");
+-        var parts = text.Split('万');
+-        if (parts.Length == 2) return checked(Amount(parts[0]) * 10000 + (parts[1].Length == 0 ? 0 : Amount(parts[1])));
+-        if (text.EndsWith('千')) return checked(Amount(text[..^1]) * 1000);
++        foreach (var (unit, multiplier) in new[] { ('万', 10000m), ('千', 1000m), ('百', 100m), ('十', 10m) })
++        {
++            var at = text.IndexOf(unit);
++            if (at < 0) continue;
++            if (text.LastIndexOf(unit) != at) throw new ArgumentException("金額の表記を確認してください。");
++            var total = (at == 0 ? 1 : Amount(text[..at])) * multiplier + (at == text.Length - 1 ? 0 : Amount(text[(at + 1)..]));
++            if (total > 1_000_000_000) throw new ArgumentException("金額は10億円以下で指定してください。");
++            return total;
++        }
++        const string kanji = "〇一二三四五六七八九";
++        text = string.Concat(text.Select(c => c == '零' ? '0' : kanji.IndexOf(c) is var digit && digit >= 0 ? (char)('0' + digit) : c));
+         if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) || value > 1_000_000_000)
+             throw new ArgumentException("数値が大きすぎます。10億以下で指定してください。");
+         return value;
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+index d7b80bd..ae762a1 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+@@ -3,7 +3,7 @@
+ <body><header><div class="brand">酒道楽 <span>商品カタログ</span></div><span class="mode">このPCでの動作確認</span></header>
+ <main><nav class="workspace-nav"><a href="/">商品検索</a><a href="/workspace.html">取込・横断検索・商品確認</a></nav><div class="intro"><div><p class="eyebrow">WINE TO STYLE</p><h1>商品カタログ検索</h1><p>価格・在庫で絞り込み、元の在庫表まで確認できます。</p></div><p id="total" class="total">商品データを確認中</p></div>
+ <section aria-labelledby="filter-title"><h2 id="filter-title">検索条件</h2><form id="search"><div class="filters"><label class="wide">自由文検索・商品名・生産者<input name="text" id="text" placeholder="例：容量1500mlの３万円以下のシャンパーニュ" maxlength="200"></label><label>国<select name="country" id="country"><option value="">すべて</option></select></label><label>産地<select name="region" id="region"><option value="">すべて</option></select></label><label>タイプ<select name="type" id="type"><option value="">すべて</option></select></label><label>容量<select name="volumeMl" id="volumeMl"><option value="">すべて</option></select></label><label>ヴィンテージ<select name="vintage" id="vintage"><option value="">すべて</option></select></label><label>希望小売価格の下限（税抜）<div class="price"><input name="priceMin" id="priceMin" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label><label>希望小売価格の上限（税抜）<div class="price"><input name="priceMax" id="priceMax" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label></div>
+-<div class="actions"><label class="check"><input type="checkbox" id="available" name="available">在庫あり・少量のみ</label><div><button type="button" id="example">確認用の条件を入れる</button><button type="reset" id="reset">条件をクリア</button><button class="primary" type="submit">検索する</button></div></div></form><p class="hint">価格の下限または上限を指定すると、金額未設定・税込の商品は対象外です。空白で区切ったキーワードをすべて含む商品を検索します（英字の大小は区別しません）。自由文では容量（ml・L）、価格（円・万円の以下／以上）、在庫あり、国、赤・白などのワインタイプ、シャンパーニュを読み取ります。その他の語はキーワード検索します。詳細条件もすべて満たす商品が対象です。</p></section>
++<div class="actions"><label class="check"><input type="checkbox" id="available" name="available">在庫あり・少量のみ</label><div><button type="button" id="example">確認用の条件を入れる</button><button type="reset" id="reset">条件をクリア</button><button class="primary" type="submit">検索する</button></div></div></form><p class="hint">価格の下限または上限を指定すると、金額未設定・税込の商品は対象外です。空白で区切ったキーワードをすべて含む商品を検索します（英字の大小は区別しません）。自由文で「2500円から4000円」「1万5千円以下」「予算3万円」「在庫のある」「750mlのみ」などを指定できます。価格の未満・超、国・産地、赤・白・泡にも対応しています。その他の語はキーワード検索します。詳細条件もすべて満たす商品が対象です。</p></section>
+ <div id="error" role="alert" hidden></div><section class="results" aria-labelledby="results-title"><div class="result-head"><h2 id="results-title">検索結果 <span id="count" aria-live="polite"></span></h2><span>希望小売価格 / 在庫表の記載時点</span></div><p id="interpreted" class="hint" role="status"></p><p id="sort-status" class="hint" role="status">列タイトルで昇順・降順を切り替えられます。</p><p id="empty" hidden>該当する商品はありません。条件を減らして再検索してください。</p><div class="table-wrap"><table id="search-results"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="product">商品<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="producer">生産者<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="country">国<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="region">産地<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="vintage">年<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="volume">容量<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="price">希望小売価格<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="stock">在庫<span aria-hidden="true"> ↕</span></button></th><th scope="col">取込元</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pager"><button id="prev">前へ</button><span id="page"></span><button id="next">次へ</button></div></section>
+ <footer>Wine to Style 在庫リスト 2026.09.01 · 独立した確認用データ · iWSET・酒道楽への書き戻しなし</footer></main>
+ <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title">取込元の確認</h2><button id="close">閉じる</button></div><div id="detail-body"></div></dialog><div id="busy" hidden role="status" aria-live="polite"><div>検索しています…</div></div></body></html>
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchPhraseMatrixTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchPhraseMatrixTests.cs
+new file mode 100644
+index 0000000..6454f04
+--- /dev/null
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchPhraseMatrixTests.cs
+@@ -0,0 +1,150 @@
++using CatalogSearch.Application;
++using CatalogSearch.Infrastructure;
++using Xunit;
++
++namespace CatalogSearch.Domain.Tests;
++
++public class NaturalSearchPhraseMatrixTests
++{
++    public static IEnumerable<object[]> ItalianRanges => new[]
++    {
++        "イタリアの赤ワインで2500円から4000円",
++        "イタリア産の赤で２５００円～４０００円まで",
++        "イタリアの赤で2,500-4,000円",
++        "国はイタリア、タイプは赤、価格は2500円から4000円",
++        "イタリアの赤で二千五百円から四千円",
++        "イタリアの赤で2千500円から4千円",
++        "2500円から4000円でイタリアの赤を探してください",
++        "イタリアの赤を2500円から4000円でお願いします",
++        "イタリア産、赤、2500〜4000円",
++        "2500円以上4000円以下のイタリアの赤",
++    }.Select(x => new object[] { x });
++
++    [Theory, MemberData(nameof(ItalianRanges))]
++    public void EquivalentItalianPhrases(string text)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal("イタリア", p.Filter.Country);
++        Assert.Equal("赤", p.Filter.ProductType);
++        Assert.Equal(2500m, p.Filter.PriceMin);
++        Assert.Equal(4000m, p.Filter.PriceMax);
++        Assert.Equal("", p.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("ブルゴーニュの白で15000円以内")]
++    [InlineData("ブルゴーニュ産の白ワインで1万5千円以下")]
++    [InlineData("産地はブルゴーニュ、白、予算15000円")]
++    [InlineData("ブルゴーニュの白で一万五千円以下")]
++    [InlineData("ブルゴーニュ地方の白を15000円以下で探してください")]
++    [InlineData("予算は1.5万円でブルゴーニュの白")]
++    public void EquivalentBurgundyPhrases(string text)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal("白", p.Filter.ProductType);
++        Assert.Equal(15000m, p.Filter.PriceMax);
++        Assert.Equal("ブルゴーニュ", p.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("容量は1500mlのみのシャンパンを3万円以下で探してください")]
++    [InlineData("1.5リットルのシャンパーニュを予算3万円でお願いします")]
++    [InlineData("シャンパン、150cl、3万円以内")]
++    [InlineData("容量:1500ml シャンパーニュ 30,000円以下")]
++    public void CapacityAndRequestWords(string text)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.True(p.Champagne);
++        Assert.Equal(1500, p.Filter.VolumeMl);
++        Assert.Equal(30000m, p.Filter.PriceMax);
++        Assert.Equal("", p.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("在庫ありのフランスの白で5000円以下")]
++    [InlineData("在庫のあるフランス産の白で5000円以内")]
++    [InlineData("フランスの白で5000円以下、在庫有りのみ")]
++    [InlineData("フランスの白で5000円以下で在庫があるもの")]
++    public void AvailabilityPhrases(string text)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.True(p.Filter.AvailableOnly);
++        Assert.Equal("フランス", p.Filter.Country);
++        Assert.Equal("白", p.Filter.ProductType);
++        Assert.Equal(5000m, p.Filter.PriceMax);
++        Assert.Equal("", p.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("白馬", "白馬")]
++    [InlineData("赤坂", "赤坂")]
++    [InlineData("白い花", "白い花")]
++    [InlineData("Pinot Noir", "Pinot Noir")]
++    [InlineData("ルイのワイン", "ルイのワイン")]
++    [InlineData("a%_\\", "a%_\\")]
++    public void UnstructuredNamesArePreserved(string text, string expected)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(expected, p.Filter.Text);
++        Assert.Null(p.Filter.ProductType);
++    }
++
++    public static IEnumerable<object[]> PermutedConditions
++    {
++        get
++        {
++            var tokens = new[] { "イタリア産", "赤ワイン", "2500円から4000円" };
++            foreach (var a in Enumerable.Range(0, 3))
++            foreach (var b in Enumerable.Range(0, 3).Where(x => x != a))
++            foreach (var separator in new[] { "の", "で", " ", "、" })
++                yield return new object[] { string.Join(separator, tokens[a], tokens[b], tokens[3 - a - b]) };
++        }
++    }
++
++    [Theory, MemberData(nameof(PermutedConditions))]
++    public void WordOrderDoesNotChangeFilters(string text) => EquivalentItalianPhrases(text);
++
++    [Theory]
++    [InlineData("3000円未満", false, true)]
++    [InlineData("3000円より安い", false, true)]
++    [InlineData("3000円超", true, false)]
++    [InlineData("3000円より高い", true, false)]
++    [InlineData("2500円から3000円未満", false, true)]
++    public void ExclusiveBounds(string text, bool lower, bool upper)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(lower, p.MinExclusive);
++        Assert.Equal(upper, p.MaxExclusive);
++        Assert.Equal("", p.Filter.Text);
++    }
++
++    [Fact] public void StrongerInclusiveBoundOverridesWeakerExclusiveBound()
++    {
++        var p = NaturalSearch.Parse(new(Text: "2500円超4000円未満", PriceMin: 3000, PriceMax: 3500));
++        Assert.False(p.MinExclusive);
++        Assert.False(p.MaxExclusive);
++        Assert.Equal(3000m, p.Filter.PriceMin);
++        Assert.Equal(3500m, p.Filter.PriceMax);
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "3000円以上3000円未満")));
++    }
++
++    [Theory]
++    [InlineData("イタリアの泡で5000円以下")]
++    [InlineData("イタリアのスパークリングワインで5000円以下")]
++    public void SparklingAliases(string text)
++    {
++        var p = NaturalSearch.Parse(new(Text: text));
++        Assert.True(p.Sparkling);
++        Assert.Equal("イタリア", p.Filter.Country);
++        Assert.Equal(5000m, p.Filter.PriceMax);
++        Assert.Equal("", p.Filter.Text);
++    }
++
++    [Fact] public void SparklingAndColorAreCombined()
++    {
++        var p = NaturalSearch.Parse(new(Text: "フランスのロゼのスパークリングで5000円以下"));
++        Assert.True(p.Sparkling);
++        Assert.Equal("ロゼ", p.Filter.ProductType);
++        Assert.Equal("", p.Filter.Text);
++    }
++}
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+index e3a4cd9..786d220 100644
+--- a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs
+@@ -45,7 +45,6 @@ public class NaturalSearchTests
+     [InlineData("0.0001L", null, null, null)]
+     [InlineData("税込3万円以下", null, null, null)]
+     [InlineData("仕入価格3万円以下", null, null, null)]
+-    [InlineData("3万円未満", null, null, null)]
+     [InlineData("シャンパーニュ以外", null, null, null)]
+     public void RejectsConflictsAndUnsupportedConditions(string text, int? volume, int? min, int? max) =>
+         Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: text, VolumeMl: volume, PriceMin: min, PriceMax: max)));
+@@ -64,4 +63,77 @@ public class NaturalSearchTests
+         Assert.Equal("赤", result.Filter.ProductType);
+         Assert.Equal("ブルゴーニュ", result.Filter.Text);
+     }
++
++    [Theory]
++    [InlineData("ブルゴーニュの白で15000円以内", "白")]
++    [InlineData("ブルゴーニュの赤で15000円以内", "赤")]
++    [InlineData("ブルゴーニュのロゼで15000円以内", "ロゼ")]
++    [InlineData("ブルゴーニュのオレンジで15000円以内", "オレンジ")]
++    [InlineData("ブルゴーニュ 白 15000円以内", "白")]
++    [InlineData("15000円以内のブルゴーニュの白", "白")]
++    [InlineData("ブルゴーニュの白ワインで15000円以内", "白")]
++    [InlineData("ブルゴーニュの白を15000円以内で", "白")]
++    public void ShortTypeNamesInPhrases(string text, string type)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal(type, result.Filter.ProductType);
++        Assert.Equal(15000m, result.Filter.PriceMax);
++        Assert.Equal("ブルゴーニュ", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("白馬")]
++    [InlineData("赤坂")]
++    [InlineData("白い花")]
++    [InlineData("赤い果実")]
++    [InlineData("オレンジピール")]
++    public void ColorInsideNamesIsNotAType(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Null(result.Filter.ProductType);
++        Assert.Equal(text, result.Filter.Text);
++    }
++
++    [Fact] public void ShortTypeConflictsAreRejected() =>
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "ブルゴーニュの白で15000円以内", ProductType: "赤")));
++
++    [Fact] public void BareWhiteIsAType() => Assert.Equal("白", NaturalSearch.Parse(new(Text: "白")).Filter.ProductType);
++
++    [Theory]
++    [InlineData("イタリアの赤ワインで2500円から4000円")]
++    [InlineData("イタリアの赤で２５００円から４０００円まで")]
++    [InlineData("イタリアの赤ワインで2,500円から4,000円以内")]
++    [InlineData("イタリアの赤で2500〜4000円")]
++    [InlineData("イタリアの赤で2500円～4000円")]
++    [InlineData("イタリアの赤で0.25万円から0.4万円")]
++    [InlineData("2500円から4000円のイタリアの赤ワイン")]
++    public void PriceRanges(string text)
++    {
++        var result = NaturalSearch.Parse(new(Text: text));
++        Assert.Equal("イタリア", result.Filter.Country);
++        Assert.Equal("赤", result.Filter.ProductType);
++        Assert.Equal(2500m, result.Filter.PriceMin);
++        Assert.Equal(4000m, result.Filter.PriceMax);
++        Assert.Equal("", result.Filter.Text);
++    }
++
++    [Theory]
++    [InlineData("4000円から2500円")]
++    [InlineData("2500円から4000円以上")]
++    [InlineData("税込2500円から4000円")]
++    public void InvalidRangesAreRejected(string text) => Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: text)));
++
++    [Fact] public void RangeIntersectsManualFilters()
++    {
++        var result = NaturalSearch.Parse(new(Text: "2500円から4000円", PriceMin: 3000, PriceMax: 3500));
++        Assert.Equal(3000m, result.Filter.PriceMin);
++        Assert.Equal(3500m, result.Filter.PriceMax);
++        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "2500円から4000円", PriceMin: 5000)));
++    }
++
++    [Fact] public void RangeRetainsResidualKeywords()
++    {
++        var result = NaturalSearch.Parse(new(Text: "イタリアの赤ワインで2500円から4000円 トスカーナ"));
++        Assert.Equal("トスカーナ", result.Filter.Text);
++    }
+ }
