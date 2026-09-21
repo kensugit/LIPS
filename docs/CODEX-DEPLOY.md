@@ -50,6 +50,18 @@ Ubuntu: `sudo systemctl disable --now lips-codex-sshd`。アプリ、DB、LANゲ
 
 ## 検証状況
 
+### 実機受入（2026-09-21）
+
+- Dell上で専用SSHとWindows転送を設定後、CodexからVPN経由のTCP22222到達と公開鍵認証に成功。
+- 利用者提示のSSHホスト公開鍵を別経路で照合。指紋 `SHA256:jrbXoPCDMCb28Hvv4GzvHwiphCmAVTUDAg3RmS8cKDI` を開発PCの専用known_hostsへ固定。
+- `status` 成功。現在パッケージ `cce3ae0d23ea70372325db65002b95809fcb14fa4de034e0f9281140b5f256c4`、Web/PostgreSQLともhealthy。
+- 10KBの識別用tarを転送し、ハッシュ一致・同一ファイル再送時の `alreadyPresent=true` を確認。識別用ファイルのSHAは `1c74dd49f5c7ecd8a5766784d2d3ebfcd00d73b61a0d9f8f09c5c8bab5129c1e`。これは製品パッケージではなく、承認・適用しない。未承認incoming領域に保管。
+- 任意コマンド `id` はexit 2、未承認tarのdeployはexit 1で拒否。Web更新・DB変更には進まず、現行パッケージ不変を再確認。
+- 公開API `http://192.168.1.5:55441/api/options` はtotal=1893。
+- 詳細証跡は開発PCの `artifacts/codex-deploy-acceptance-20260921.json`（Git対象外）。
+
+専用接続・転送・承認制御の実機受入は完了。新しい製品版の実デプロイとロールバック実行は未実施で、次回の承認済みリリース時に確認する。Windows LANゲートウェイの更新・DB Migrationはこの経路の対象外。
+
 開発側でコマンド注入拒否、アップロードの完全一致・重複・サイズ上限・破損時の一時ファイル除去・既存不一致ファイル保持・固定sudo引数を試験。実機のSSH構文・systemd・VPN到達・ホスト鍵照合・本番statusはセットアップ後に確認する。セットアップは本番アプリを更新しない。
 
 参考: [OpenSSH sshd_config](https://man.openbsd.org/sshd_config)、[Microsoft WSL networking](https://learn.microsoft.com/en-us/windows/wsl/networking)。
