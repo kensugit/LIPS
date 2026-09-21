@@ -100,7 +100,12 @@ try:
 except ImportError:
     from diony_pdf import diony, diony_news
 
-PARSERS = {"diony": diony, "diony-news": diony_news, "daiei": daiei, "wine-experience": wine_experience, "finesse": finesse, "royal": royal, "toyotsu": toyotsu}
+try:
+    from .arcan_pdf import arcan
+except ImportError:
+    from arcan_pdf import arcan
+
+PARSERS = {"arcan": arcan, "diony": diony, "diony-news": diony_news, "daiei": daiei, "wine-experience": wine_experience, "finesse": finesse, "royal": royal, "toyotsu": toyotsu}
 
 
 def import_pdf(source: Path, output: Path, name: str | None = None, parser: str = "text") -> dict:
