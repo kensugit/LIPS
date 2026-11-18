@@ -1,0 +1,4 @@
+catalog-search-poc/DB/Migrations/** -text
+catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/** -text
+
+catalog-search-poc/tools/xls-folder/vendor/** -text

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CatalogSearch.Domain/CatalogSearch.Domain.csproj" />
+    <Project Path="src/CatalogSearch.Application/CatalogSearch.Application.csproj" />
+    <Project Path="src/CatalogSearch.Infrastructure/CatalogSearch.Infrastructure.csproj" />
+    <Project Path="src/CatalogSearch.ImportCli/CatalogSearch.ImportCli.csproj" />
+    <Project Path="src/CatalogSearch.Web/CatalogSearch.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CatalogSearch.Domain.Tests/CatalogSearch.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

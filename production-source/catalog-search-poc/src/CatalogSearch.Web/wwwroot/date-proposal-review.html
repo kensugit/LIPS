@@ -1,0 +1,4 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>日付候補の確認</title><link rel="stylesheet" href="date-proposal-review.css">
+<main><h1>日付候補と根拠を確認</h1><p>合成資料を使った確認用画面です。候補の確認では回答保存や商品取込は行いません。</p>
+<section id="prepare"><h2>1. 確認資料を用意</h2><p>資料：合成原典 A1「在庫日2026年10月1日」</p><button id="request">合成確認用の要求JSONを保存</button><button id="sample">合成の候補を表示</button><p>担当者から返された合成確認用の応答を確認する場合：</p><label>応答JSON <input id="response" type="file" accept=".json,application/json"></label><button id="validate">応答を検証して表示</button></section>
+<p id="status" role="status"></p><section id="result" hidden><h2>2. 日付と原典の根拠を照合</h2><div id="candidates"></div><p>これは候補です。業務日付の確定には、既存の疑義確認画面で本人の回答保存が必要です。取込再開はさらに別操作です。</p><button id="back">別の応答を確認</button></section></main><script src="date-proposal-review.js"></script></html>

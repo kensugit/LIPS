@@ -1,0 +1,14 @@
+{
+  "schema": "lips-date-proposal/v1",
+  "requestId": "92aa25d9-60fb-4886-8b54-330ebd3e7a31",
+  "sourceHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "reviewVersion": 3,
+  "promptVersion": "date-evidence/1",
+  "excerpts": [
+    {
+      "id": "e1",
+      "location": "合成原典!A1",
+      "text": "在庫日2026年10月1日"
+    }
+  ]
+}

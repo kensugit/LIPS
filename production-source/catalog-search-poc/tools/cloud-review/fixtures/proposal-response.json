@@ -1,0 +1,19 @@
+{
+  "schema": "lips-date-proposal/v1",
+  "requestId": "92aa25d9-60fb-4886-8b54-330ebd3e7a31",
+  "sourceHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "reviewVersion": 3,
+  "promptVersion": "date-evidence/1",
+  "provider": "offline-fixture",
+  "model": "synthetic",
+  "outcome": "Candidates",
+  "candidates": [
+    {
+      "date": "2026-10-01",
+      "reason": "原典に記載された在庫日",
+      "evidenceIds": [
+        "e1"
+      ]
+    }
+  ]
+}

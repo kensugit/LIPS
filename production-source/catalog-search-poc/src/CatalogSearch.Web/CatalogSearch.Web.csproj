@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <Content Include="../../tools/xls-folder/**/*.py;../../tools/xls-folder/vendor/**/*.txt;../../tools/xls-folder/vendor/**/METADATA;../../tools/xls-folder/vendor/**/LICENSE*" Link="tools/xls-folder/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../tools/pdf-folder/*.py;../../tools/pdf-folder/requirements.txt" Exclude="../../tools/pdf-folder/test_*.py;../../tools/pdf-folder/prepare_vendor.py" Link="tools/pdf-folder/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../tools/original-render/render.py;../../tools/original-render/excel-render.ps1;../../tools/original-render/libreoffice_backend.py" Link="tools/original-render/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CatalogSearch.Application/CatalogSearch.Application.csproj" />
+    <ProjectReference Include="../CatalogSearch.Infrastructure/CatalogSearch.Infrastructure.csproj" />
+  <PackageReference Include="Microsoft.AspNetCore.OpenApi" /><PackageReference Include="Microsoft.OpenApi" /></ItemGroup>
+</Project>

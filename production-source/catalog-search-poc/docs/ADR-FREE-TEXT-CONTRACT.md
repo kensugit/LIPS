@@ -1,0 +1,13 @@
+# Free text consumer contract (isolated candidate)
+
+Reference: BASE free_text_contract.py SHA256 d6c5071ca0e5ff57d7ba52901ff95b01caf4b354327c073988698160cc5f356f. No deployed source or runtime is changed by this candidate.
+
+CreateRequest snapshots six option lists and checks the v1 bounds. Suppliers are supplier codes, with display names supplied separately by the options provider. CatalogVersion is an opaque caller-owned snapshot identity, not an invented database version. ParseResponse checks exact envelope/filter members, case-insensitive duplicate names, matching request/schema/prompt/catalog identities, options membership, UTF-16 string lengths, body bytes, price integers and ordering. Provider/model must be present and bounded; this pure layer does not invent or pin a deployment model. Malformed JSON throws JsonException; contract violations throw ArgumentException. The transport caller must treat either as an unavailable interpretation and use the authorized existing-rules fallback with a visible safe reason.
+
+Only validated interpretations enter Merge. Explicit nonblank UI strings and nonnull numbers override interpretation values. Checked availability wins; unchecked means unspecified. The merged price range must remain valid. Filter.Text is always null. Keywords plus unparsed terms are deduplicated literally, preserving ordinal case and input order; the structured query executor must never feed them through NaturalSearch again. The adopted filter/supplier/keywords are returned for display.
+
+BASE's supplied Champagne interpretation has region=シャンパーニュ and productType=null. This layer does not invent sparkling type from that region. Existing deterministic fallback may derive sparkling under its existing rule; the caller must display adopted conditions so the distinction is visible.
+
+No network or DB implementation is included here. Response option membership validation is stronger than Python equality coercion: JSON booleans/floats cannot become volume integers. Unknown properties are rejected, so Unicode non-ASCII aliases cannot bypass exact field membership even where Unicode casefold differs from .NET OrdinalIgnoreCase.
+
+Validation: targeted xUnit tests include the supplied fixture filter shape, invalid envelopes, options, duplicate-case keys, integer/boolean separation, UTF-16/body/list bounds, request wire names, UI precedence, literal residuals and availability semantics. Existing NU1902/NU1903 dependency audit warnings block the unmodified warnings-as-errors test command; a test-only WarningsNotAsErrors override retains warning output without modifying dependency versions or project policy. These tests do not establish HTTP/model or production acceptance.

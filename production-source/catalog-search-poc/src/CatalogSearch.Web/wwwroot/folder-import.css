@@ -1,0 +1,11 @@
+#folder-rows td:nth-child(5), #folder-rows td:nth-child(6) { white-space: nowrap; }
+#folder-rows td:nth-child(2) { overflow-wrap: anywhere; max-width: 26rem; }
+#folder-rows input[type=date] { min-width: 9rem; }
+#folder-rows td:last-child { min-width: 16rem; }
+
+#intake-reviews textarea { display:block; width:100%; min-height:5rem; box-sizing:border-box; font:inherit; }
+#intake-reviews details { margin:1rem 0; overflow-wrap:anywhere; }
+#intake-reviews form label { display:block; margin:.6rem 0; }
+
+#folder-rows td:first-child { text-align: center; }
+#folder-rows input[type=checkbox] { width: 1.15rem; height: 1.15rem; }

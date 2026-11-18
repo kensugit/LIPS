@@ -1,0 +1,7 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>次回取込の再利用設定</title><link rel="stylesheet" href="/catalog.css"><script defer src="/intake-rules.js"></script></head><body><main>
+<nav><a href="/workspace.html">取込へ戻る</a></nav><h1>次回取込の再利用設定</h1><p>取り消した設定は次回から自動適用されず、再び確認が必要になります。取込済みの商品と元の回答は変更しません。</p>
+<p id="rule-status" role="status" aria-live="polite"></p><button id="refresh-rules" type="button">保存状態を再確認</button>
+<section id="rule-list-panel"><h2>確認する設定を選ぶ</h2><div id="rule-list"></div></section>
+<section id="rule-detail" hidden><button id="back-rules" type="button">設定一覧へ</button><h2 id="rule-title"></h2><p id="rule-scope"></p><p id="rule-evidence"></p><a id="rule-original">回答と原典を見る</a><h3>変更履歴</h3><ol id="rule-history"></ol>
+<form id="revoke-form"><label>取消理由<textarea id="revoke-reason" required maxlength="500"></textarea></label><p><label><input id="revoke-confirm" type="checkbox" required>この設定の次回からの自動適用を停止する</label></p><button id="revoke-rule" type="submit">再利用設定を取り消す</button></form></section>
+</main></body></html>

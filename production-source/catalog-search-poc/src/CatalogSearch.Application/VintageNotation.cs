@@ -1,0 +1,32 @@
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace CatalogSearch.Application;
+
+/// <summary>Search/display notation only. Original supplier evidence is never changed.</summary>
+public static class VintageNotation
+{
+    public static string Normalize(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        var value = raw.Normalize(NormalizationForm.FormKC).Trim();
+        var unwrapped = value;
+        while (unwrapped.Length >= 2 && ((unwrapped[0] == '(' && unwrapped[^1] == ')') ||
+               (unwrapped[0] == '[' && unwrapped[^1] == ']')))
+            unwrapped = unwrapped[1..^1].Trim();
+        if (Regex.IsMatch(unwrapped, @"^[0-9]{4}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+            return unwrapped;
+        if (Regex.IsMatch(unwrapped, @"^[NM]\s*\.?\s*V\s*\.?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+            return "NV";
+        return raw; // Age statements, blends and unknown values are not inferred.
+    }
+
+    public static string[] Options(IEnumerable<string> rawValues) => rawValues.Select(Normalize)
+        .Where(x => x.Length > 0).Distinct(StringComparer.Ordinal).OrderByDescending(x => x, StringComparer.Ordinal).ToArray();
+
+    public static string[] MatchingRawValues(IEnumerable<string> rawValues, string requested)
+    {
+        var normalized = Normalize(requested);
+        return rawValues.Where(x => Normalize(x) == normalized).Distinct(StringComparer.Ordinal).ToArray();
+    }
+}

@@ -1,0 +1,54 @@
+name: catalog
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Required immutable image}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalog_search
+      POSTGRES_USER: catalog
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    ports: ["127.0.0.1:55439:5432"]
+    volumes: ["catalog-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog -d catalog_search"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  web:
+    image: ${CATALOG_IMAGE:?Required immutable image}
+    pull_policy: never
+    # Linux VM only: retain the application's loopback + Host/Origin guards.
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      CatalogDemo__Enabled: "true"
+      CatalogDemo__WatchEnabled: "true"
+      CatalogDemo__Inbox: /data/inbox
+      DOTNET_EnableDiagnostics: "0"
+    secrets: [db_password]
+    volumes: ["/var/lib/catalog/inbox:/data/inbox:ro"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:55440/api/options"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  catalog-data:
+    name: catalog-postgres-data
+secrets:
+  db_password:
+    file: /etc/catalog/secrets/db_password

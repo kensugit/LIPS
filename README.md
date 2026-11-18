@@ -1,5 +1,9 @@
 # LIPS PDFリスト取り込み
 
+## 本番Webソース（2026-11-18追加）
+
+保存済み本番適用記録のsource `3cf2a1d` に一致するWeb本体を、[production-source/catalog-search-poc](production-source/catalog-search-poc/) に収録しました。[対応版・検証範囲・ファイルSHA一覧](docs/PRODUCTION-SOURCE.md)を参照してください。下記のWeb本体を含まない旨の記述は、追加前の構成に関する履歴です。ソース公開は本番AI有効化を意味しません。
+
 ## ソース管理と配置
 
 Codexからの本番状態確認・転送・承認済みWeb更新の専用接続は [Codex配布手順](docs/CODEX-DEPLOY.md) を参照してください。

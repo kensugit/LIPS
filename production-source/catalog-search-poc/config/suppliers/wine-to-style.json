@@ -1,0 +1,26 @@
+{
+  "supplierCode": "WINE_TO_STYLE",
+  "displayName": "Wine to Style",
+  "sheetName": "ワインリスト",
+  "headerRow": 2,
+  "firstDataRow": 3,
+  "identityColumns": ["SKU"],
+  "inventoryMappings": {
+    "OK": "IN_STOCK",
+    "少量": "LOW_STOCK",
+    "blank": "UNKNOWN",
+    "numeric": "IN_STOCK_WITH_QUANTITY"
+  },
+  "priceMappings": {
+    "希望小売": "REFERENCE_RETAIL",
+    "オープン": "OPEN_PRICE"
+  },
+  "specialRules": {
+    "janZeroMeansMissing": true,
+    "extractMultipleJanCodes": true,
+    "nvAndMvAreNonNumericVintage": true,
+    "currency": "JPY",
+    "taxIncluded": false,
+    "taxRule": "税込の明記がある場合のみtrue。記載がなければ税抜(false)"
+  }
+}

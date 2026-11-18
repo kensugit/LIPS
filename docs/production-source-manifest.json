@@ -1,0 +1,1648 @@
+{
+  "schema": "lips-production-source-snapshot/v1",
+  "originalSourceCommit": "3cf2a1dcebf2e75c13615356a592a9698433dbb5",
+  "package": "757b48ee915274f4bbaf2d7b01b5fed6592b179c1da7f00bb64abd00e26d85af",
+  "webImage": "sha256:29276150f4db0308da9b8a5e72df730186ae530f7d4b815ee79d7723e317a9c3",
+  "deploymentEvidenceDate": "2026-10-17",
+  "freshProductionInspected": false,
+  "aiActivationProven": false,
+  "sourceTree": "c9ef6c5514a83268d9a203ed87269a9b51d35793",
+  "fileCount": 327,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 171,
+      "sha256": "3e5102b022f36692cd685d984e261b107fd169504cb0c091976bac0ed7ddee11"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 17,
+      "sha256": "5f980c385e5fbe00b61ab98091ed7d20e4eab56ce11c640e948665627955810d"
+    },
+    {
+      "path": "catalog-search-poc/.dockerignore",
+      "bytes": 88,
+      "sha256": "9f0aa201aff1330a35340f65aef2c8cf63abb57010c8e28bfc7c55c306a0cf5c"
+    },
+    {
+      "path": "catalog-search-poc/.env.example",
+      "bytes": 433,
+      "sha256": "36aeb099b13abc689f0f783ca4689b216de215912c061fe25659015d93b061b5"
+    },
+    {
+      "path": "catalog-search-poc/.gitignore",
+      "bytes": 88,
+      "sha256": "78624267c58ac488a8c560d5cf66cca6a29a0e034caf970e9a64730c9a66d966"
+    },
+    {
+      "path": "catalog-search-poc/AGENTS.md",
+      "bytes": 1897,
+      "sha256": "0b72a95b9ac23c3d9cd5663383495f65384aca1137f60bde6b64b4ef4558424c"
+    },
+    {
+      "path": "catalog-search-poc/CODEX-HANDOFF.md",
+      "bytes": 125634,
+      "sha256": "88655a04b5068c43707d917949a1aa20624c976d3e2d851ed543ed531656c071"
+    },
+    {
+      "path": "catalog-search-poc/CatalogSearch.slnx",
+      "bytes": 605,
+      "sha256": "347849dee8f392a26676a4027658b31734cc77b93e57151d1b0fc1551e5e2eec"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20260917000229_InitialCatalogPersistence.sql",
+      "bytes": 17445,
+      "sha256": "4ad1d5d7bd9e0e438b55dc915ab7523371a0e5edd76250ac6f35aeeeb1683e49"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20260917015338_CatalogWorkflows.sql",
+      "bytes": 21029,
+      "sha256": "69ac49601845b79612bfc1daba078754dd9be7ccc55f50da83fb306047cea7b1"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20261012010000_IntakeReview.sql",
+      "bytes": 356,
+      "sha256": "c9bc39cd08715ca46595396af5b46e87db1accd4cf2b81b727f7b1179bc7baa9"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20261012070000_IntakeReusableRules.sql",
+      "bytes": 528,
+      "sha256": "e0254622645fd8c666ba6ccb0b27610809f36aac526a81cbd2f78b11f394817f"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20261013010000_ExactSourcePairLinks.sql",
+      "bytes": 674,
+      "sha256": "0b4d2310de8e246a6eb273f0b06240891437da38c70d3f371ae2cf6edc014406"
+    },
+    {
+      "path": "catalog-search-poc/DB/Migrations/20261013020000_ExactPairCatalogImport.sql",
+      "bytes": 844,
+      "sha256": "7ebfcce27d8eddccd8358ed3141434ae3deac2df8cdbf17fd3752241a9a36521"
+    },
+    {
+      "path": "catalog-search-poc/Directory.Build.props",
+      "bytes": 305,
+      "sha256": "2726d96b46f2459d94661a6f45c8ca78275f542487da85ffe6dda261f624fb56"
+    },
+    {
+      "path": "catalog-search-poc/Directory.Packages.props",
+      "bytes": 900,
+      "sha256": "01a55f863a8e594dbbd6d6825fc41492f1ee77a8c698f8e54b8a1136f19ac82d"
+    },
+    {
+      "path": "catalog-search-poc/PROJECT-STATUS.md",
+      "bytes": 270,
+      "sha256": "057ce72d0fac1378340f541f8bba1322afaf477eb965039d8caef7bcf7c59ecd"
+    },
+    {
+      "path": "catalog-search-poc/README.md",
+      "bytes": 2800,
+      "sha256": "4acae3f5d1504ff983209e30ab0674a250eb22b6c776c32cf2b149f947606f83"
+    },
+    {
+      "path": "catalog-search-poc/config/suppliers/wine-to-style.json",
+      "bytes": 726,
+      "sha256": "71afb708baa1d966845a1cbf29115b628848a3c8b908e4a1f65f372b060ba434"
+    },
+    {
+      "path": "catalog-search-poc/data/fixtures/demo-supplier.csv",
+      "bytes": 444,
+      "sha256": "829dfd12ad040272d3335d658a1e82aed0ca9d0874c1155a429dfebb0ce0184b"
+    },
+    {
+      "path": "catalog-search-poc/data/inbox/.gitkeep",
+      "bytes": 2,
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6"
+    },
+    {
+      "path": "catalog-search-poc/deployment/.gitattributes",
+      "bytes": 86,
+      "sha256": "a49f5478b56260cd680f9e66fd1dfda3dd844a85623f681e645efa41c5baaa44"
+    },
+    {
+      "path": "catalog-search-poc/deployment/Deploy-CatalogFromCodex.ps1",
+      "bytes": 1931,
+      "sha256": "0672dd475648828310ead56b22535908e7951101b59ec2bc8ea42b892d1e2e48"
+    },
+    {
+      "path": "catalog-search-poc/deployment/Dockerfile",
+      "bytes": 693,
+      "sha256": "b597e93205057b565d19e5e8f8a9d684943184c327e950ee5ed494e9b378bbe8"
+    },
+    {
+      "path": "catalog-search-poc/deployment/Get-DellDockerReadiness.ps1",
+      "bytes": 2015,
+      "sha256": "34591d915c73ab48f3456b91f6935574d7c36663c4f14d538d42074443e9d01d"
+    },
+    {
+      "path": "catalog-search-poc/deployment/New-DellCatalogVm.ps1",
+      "bytes": 2938,
+      "sha256": "f86d08c36f38aad7674713565c12562a714af37f5e2c2a965c8112a35b313d92"
+    },
+    {
+      "path": "catalog-search-poc/deployment/bootstrap-ubuntu.sh",
+      "bytes": 3408,
+      "sha256": "8f0a52cf19ff8796f1b5e15f8be807239fd9976adc12e7f9e9c7b0bbef00e698"
+    },
+    {
+      "path": "catalog-search-poc/deployment/build-release.sh",
+      "bytes": 1465,
+      "sha256": "8b1e2b2a18fe67b6114d593643cd6d24f117d0d06564e4297ecde17d3e47c1a0"
+    },
+    {
+      "path": "catalog-search-poc/deployment/catalogctl",
+      "bytes": 6972,
+      "sha256": "0140701484dc3a515c33ac5a2c56c84a1f3f4c8679faffafdf45927db83ef7f5"
+    },
+    {
+      "path": "catalog-search-poc/deployment/compose.yaml",
+      "bytes": 1647,
+      "sha256": "619726188c82e8639e131ffd38ee972f75c71306052d3557de5df489d67e97d1"
+    },
+    {
+      "path": "catalog-search-poc/deployment/entrypoint.sh",
+      "bytes": 499,
+      "sha256": "80478238ff32d895e0c4c244305e2f7ea79c2383e00210e9a6e065119cb06ec7"
+    },
+    {
+      "path": "catalog-search-poc/docker-compose.yml",
+      "bytes": 499,
+      "sha256": "7aabb28c6a8d4af6c5fde04a42eee685c8967f210adecbe95c79539d8502b9b5"
+    },
+    {
+      "path": "catalog-search-poc/docs/ADR-FREE-TEXT-CONTRACT.md",
+      "bytes": 2745,
+      "sha256": "7ceb27f7dec33c355c3b3be01c69e3ecdf7ddb381f08fb7104d7013df709d1ef"
+    },
+    {
+      "path": "catalog-search-poc/docs/ADR-ORIGINAL-IMAGE.md",
+      "bytes": 737,
+      "sha256": "c55f28b2a97b0df37e774f7957b6dcd3df1a49f90c38d0d772ce59621cef6e0d"
+    },
+    {
+      "path": "catalog-search-poc/docs/ARCHITECTURE.md",
+      "bytes": 2671,
+      "sha256": "c0d5e377f02c2dbc81e1e8dfcdd2d6fe78488eeb875ea80cc678d6cea2a0a150"
+    },
+    {
+      "path": "catalog-search-poc/docs/BASE-DATE-PROPOSAL-CONTRACT.md",
+      "bytes": 3914,
+      "sha256": "8e96bb319937d1ac6e1abb8a3b0b3fd28840584cf2cf147311f4967e815100c0"
+    },
+    {
+      "path": "catalog-search-poc/docs/DELL-DOCKER-GUIDE.md",
+      "bytes": 11877,
+      "sha256": "51e6e559c75ae219ad1bdf71af9b96d92f20a52f7403ffb8cdca16e4c773b193"
+    },
+    {
+      "path": "catalog-search-poc/docs/ENEOS-CONFLICT-ACCEPTANCE.md",
+      "bytes": 3179,
+      "sha256": "ea8169507ea1114777cac222ba84b7265a92d560ba8f49e464fda9a364b51d0e"
+    },
+    {
+      "path": "catalog-search-poc/docs/FOLDER-UI-REVIEW.md",
+      "bytes": 2121,
+      "sha256": "e2adc9e3d5a0cd513a57a553a46427d5a60240a11f1cd48763ebe6ced59fc3f5"
+    },
+    {
+      "path": "catalog-search-poc/docs/FOLDER-UPLOAD.md",
+      "bytes": 11674,
+      "sha256": "2e413843eca63282c4e3373ff22d6c98e3b3737d26082d35931937821a8fd1cb"
+    },
+    {
+      "path": "catalog-search-poc/docs/GOAL-ACCEPTANCE.md",
+      "bytes": 8367,
+      "sha256": "1b1430cc3ccc316bf43b2e502c1ef81523585adb0ea369063ea73f3739ddaafd"
+    },
+    {
+      "path": "catalog-search-poc/docs/HELD-INTAKE-NEXT.md",
+      "bytes": 8762,
+      "sha256": "c7149218fe986d2bd7daf8a72d487b0b823108ed564c3c2bc57419334d2b1cbd"
+    },
+    {
+      "path": "catalog-search-poc/docs/IMAGE-ZOOM-REVIEW.md",
+      "bytes": 2715,
+      "sha256": "c7d617ac9c62d4ba55955dd5ba5f8641cf8b63e81cd042531f3149f947f810c9"
+    },
+    {
+      "path": "catalog-search-poc/docs/IMPLEMENTATION-BACKLOG.md",
+      "bytes": 2211,
+      "sha256": "7a2232cfdf1ecd9fad4e36e3179f030d3b6e837ee3bd6cec1b5db8c04349ba50"
+    },
+    {
+      "path": "catalog-search-poc/docs/IMPORT-QUESTION-REVIEW.md",
+      "bytes": 3722,
+      "sha256": "127bcd49d17427f14bb8859f60ce8fa43e5373211c8a71b8d4db2232353810b4"
+    },
+    {
+      "path": "catalog-search-poc/docs/IMPORT-QUESTION-WORKFLOW.md",
+      "bytes": 3326,
+      "sha256": "c9a4d3ba9c4c6837d873bd1ec23208ae3d78e88c8af54ee3b7cd3e31ca6e2829"
+    },
+    {
+      "path": "catalog-search-poc/docs/IROHA-XLS-20261017.md",
+      "bytes": 2365,
+      "sha256": "016f1466b603d18c4b4c0367ccf74fa56f1a07fbc7df27a44800e5fef44268a8"
+    },
+    {
+      "path": "catalog-search-poc/docs/LAVINEE-ACCEPTED-ANSWERS-REVIEW.md",
+      "bytes": 3862,
+      "sha256": "6205e4277bcf3edcf0a6e017f418cde3c7f86c924de1c270f73188b16830708b"
+    },
+    {
+      "path": "catalog-search-poc/docs/LAVINEE-PARTIAL-REVIEW.md",
+      "bytes": 2210,
+      "sha256": "7b2252ca8485cda34cc6786d02879164792f57141762a3f0b2a364966413748d"
+    },
+    {
+      "path": "catalog-search-poc/docs/LINUX-WEB-ACCEPTANCE-DEPENDENCIES.md",
+      "bytes": 6909,
+      "sha256": "75eeecf2b80daf4bf917ce1c819d7ec95947c932087faea32788b66ba5a0accf"
+    },
+    {
+      "path": "catalog-search-poc/docs/LOCAL-DEMO-GUIDE.md",
+      "bytes": 8255,
+      "sha256": "0629ff0b0e2d39ac615f9f97f36a2a2d1e9d77ea10ef8de40fa9094607070f38"
+    },
+    {
+      "path": "catalog-search-poc/docs/MAPPING-ANSWER-REUSE-REVIEW.md",
+      "bytes": 7459,
+      "sha256": "1f6d74c212e3f18410f521ae0fae2f9f89e21f6fa76622b6040e4049a8f5ec36"
+    },
+    {
+      "path": "catalog-search-poc/docs/MAPPING-PRODUCTION-MIGRATION.md",
+      "bytes": 17082,
+      "sha256": "6e12670ce40b49721656d35db90b9e8160fd316de13fbea980dcab104a0899da"
+    },
+    {
+      "path": "catalog-search-poc/docs/MAPPING-SEQUENCE-REVIEW.md",
+      "bytes": 8229,
+      "sha256": "febe6c892d182dd037f7763ff09913d6a068d88942c4f4a14676036ac36f3b33"
+    },
+    {
+      "path": "catalog-search-poc/docs/MULTI-SUPPLIER-REVIEW.md",
+      "bytes": 2113,
+      "sha256": "97f2a620d20319b81bb6bb81a425ec7ad16c069914be3529911c8460fde3f163"
+    },
+    {
+      "path": "catalog-search-poc/docs/NEXT-WORK-VERIFICATION.md",
+      "bytes": 1526,
+      "sha256": "9a052c0e4241221e21abdcc6c9168f849accc82f615b12d3517044c9c569202a"
+    },
+    {
+      "path": "catalog-search-poc/docs/OPEN-QUESTIONS.md",
+      "bytes": 2308,
+      "sha256": "6d9a24ea7e476d52b91346c2f564a2c7d4bff67fd9de29d6f159ec9fbfb9bb86"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORIGINAL-IMAGE-REVIEW.md",
+      "bytes": 6862,
+      "sha256": "196b828f61e2bf4861ea46ee776234e55e6e3a33b19b05b1534c1a07212bdae6"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORIGINAL-RENDER-PERFORMANCE.md",
+      "bytes": 2687,
+      "sha256": "3619750c17b1b8e02685adc6e64ac3e74e20cf28a0e29fbaed319892ee958175"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORIGINAL-RENDER-READABILITY.md",
+      "bytes": 2589,
+      "sha256": "4dc20958ddcf21a1ce63104b24cffe51ab9dc1d2f1031bc8988518e6344bb341"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORVEAUX-AOC-EXACT-PAIR.md",
+      "bytes": 7834,
+      "sha256": "bcffdc6ae5d19baa741044abc9de3645cec5fb9c267ee094ae2320aa36c043aa"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORVEAUX-PAIR-IMPORT-REVIEW.md",
+      "bytes": 2404,
+      "sha256": "34d324c97a4dd264e653156bc7559af351c3f31642407b4d9873bfe8add0e724"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORVEAUX-PAIR-UI-REVIEW.md",
+      "bytes": 3319,
+      "sha256": "62a32c90091cf289669028e351ca220908821e3ab698165a9087385d171317a7"
+    },
+    {
+      "path": "catalog-search-poc/docs/ORVEAUX-STOCK-20261017.md",
+      "bytes": 3908,
+      "sha256": "480e7aafba9daf8d779b05c21c96b1383e3c531ad6700716566c7985eabed095"
+    },
+    {
+      "path": "catalog-search-poc/docs/PARTIAL-REUSE-REVIEW.md",
+      "bytes": 2348,
+      "sha256": "097c5e643c97f8b144f2b50f8297620eafd8309207ce6365149dedf7d65b2f8b"
+    },
+    {
+      "path": "catalog-search-poc/docs/PDF-FOLDER-20261016.json",
+      "bytes": 2008,
+      "sha256": "5fa5b44a1a3783f73af25be459229aeca4b8b6652b221e2d5ec0c100d0817895"
+    },
+    {
+      "path": "catalog-search-poc/docs/PERSISTENCE-VERIFICATION.md",
+      "bytes": 5182,
+      "sha256": "d1aa4eb218fdbe6ae8033170816647de41541f2572961b65a121cf21f87a1831"
+    },
+    {
+      "path": "catalog-search-poc/docs/POC-SCOPE.md",
+      "bytes": 1414,
+      "sha256": "b4f7ad71c9d7af0e7d2ce770cdbe0cacd3e5331633ba3e43dc115eef65d4cd77"
+    },
+    {
+      "path": "catalog-search-poc/docs/PRICE-UNIT-REVIEW.md",
+      "bytes": 1787,
+      "sha256": "c0b4d5f9e91c63ec3715e2c4dde8fd2ae4e259ef42242e5da5a83591f8a9783a"
+    },
+    {
+      "path": "catalog-search-poc/docs/PROPOSAL-RULE-PREVIEW.md",
+      "bytes": 2610,
+      "sha256": "8fdd430fdb567ffb71682a62b25fc95cefc984ecfa7b97e3badf82ca7c348d6b"
+    },
+    {
+      "path": "catalog-search-poc/docs/QUESTION-REFRESH-REVIEW.md",
+      "bytes": 1895,
+      "sha256": "96423b1c418cb4055affcdd4c181287ef2d821908708ae34cdd516fee0af4a55"
+    },
+    {
+      "path": "catalog-search-poc/docs/RECEIVED-ANSWERS-REVIEW.md",
+      "bytes": 2938,
+      "sha256": "46ad1a26ac7f1561e6cd721e9b31b024f853ff1cb70db521413ff3420f230d6e"
+    },
+    {
+      "path": "catalog-search-poc/docs/REUSE-STATE-REVIEW.md",
+      "bytes": 1823,
+      "sha256": "4b261007dbe6cfca2eab1b9e67778f667d95c4c3933648f79712ea01cf41fcaf"
+    },
+    {
+      "path": "catalog-search-poc/docs/ROW-INTAKE-RELEASE-GATES.md",
+      "bytes": 3257,
+      "sha256": "ad0495b6dd41a1e365400f5eaeffd26e1c0fe921f29a110a3f82e680d87e1c20"
+    },
+    {
+      "path": "catalog-search-poc/docs/ROW-RESUME-REVIEW.md",
+      "bytes": 5626,
+      "sha256": "ffd4c0476562816dd0e4042c9d16e2907d345294ab6dc4b0326d6e60ffeaba96"
+    },
+    {
+      "path": "catalog-search-poc/docs/SOURCE-TABLE-ANSWERS.md",
+      "bytes": 2416,
+      "sha256": "a0e726ef39b50645f2ee3bb54e9b2c5893ae6ab900fb94fad0bd035016c6b2df"
+    },
+    {
+      "path": "catalog-search-poc/docs/WINE-TO-STYLE-ANALYSIS.md",
+      "bytes": 1907,
+      "sha256": "761c8a48303e414be5c60d0c3f150a5d4593fd2a1f79da7ec7bdadb396020046"
+    },
+    {
+      "path": "catalog-search-poc/docs/WORKFLOWS-GUIDE.md",
+      "bytes": 7483,
+      "sha256": "c90dd47f04754f7b41546a50975503cec0ae22a00963daacd2260f10c1efb7e9"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0001-four-layer-boundary.md",
+      "bytes": 233,
+      "sha256": "404fb152868042e0e56e686eca6b712156974e656d2ff35cc51c8a7ed6b76d9a"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0002-product-identities.md",
+      "bytes": 274,
+      "sha256": "cd41ffa5295dcec9e4a27f7bdd13af7df2e91f86ba8534dacb197cf681b650e6"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0003-shudoraku-read-only.md",
+      "bytes": 315,
+      "sha256": "2ccb2688facb6b9ae6883bbcce50e1990421f0a14f9e4c79651d3df74970658d"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0004-sql-first-persistence.md",
+      "bytes": 1338,
+      "sha256": "cd3e27dcf7a48731daa90cb96b1cf4cb490e90a33514d256d2fae25aac3a19cb"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0005-local-ingestion-review.md",
+      "bytes": 1385,
+      "sha256": "2da462fc53b172aff621946d19aec65ef4ff44efd07bfa5a2d9d1483dea55207"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0006-dell-linux-container-boundary.md",
+      "bytes": 1616,
+      "sha256": "850c4cd7b4306114f5d512bc1b7891b2c94d0751a7c42a317d6bef2227cd8032"
+    },
+    {
+      "path": "catalog-search-poc/docs/adr/0007-keyword-and-review-guards.md",
+      "bytes": 1373,
+      "sha256": "09cf91188114e267a15c4602bf9ca8ed35db4c1b9604a0c528df4194b288c676"
+    },
+    {
+      "path": "catalog-search-poc/docs/search-catalog-snapshot-identity.md",
+      "bytes": 2489,
+      "sha256": "c9453e3f2230eb366aafaed9c22d2a6f62677be81d37405b15437aa039c9bbe0"
+    },
+    {
+      "path": "catalog-search-poc/poc/verify_wine_to_style.py",
+      "bytes": 3355,
+      "sha256": "f7ff5b1c208d74a610f8d0e49969255e4e570ce9f41d98f1f94ce5a1b9f41e9e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/CatalogSearch.Application.csproj",
+      "bytes": 156,
+      "sha256": "4aea37eda9ed33d14c8314945b11ff528403042aaff738eeb7d049470c72bba9"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/Contracts.cs",
+      "bytes": 3336,
+      "sha256": "1890ca861f9b387105568334497f33bffd73b4af7a8e7f37f48cbc1136ec53bc"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/FreeTextSearchContracts.cs",
+      "bytes": 9431,
+      "sha256": "e08eb0d319c616d9fd658a6c256567932888838b43352228b8ed5899e91ef65b"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/ImportService.cs",
+      "bytes": 3113,
+      "sha256": "1f19d9401ccaac88adc826d650dd2f4b4ffce799b6a38e7d64c15d84a785116a"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/IntakeDateProposal.cs",
+      "bytes": 4017,
+      "sha256": "29d2802920ab098514816c7b6c8c67ac28b90d3f4c8f5936562426b191cdcec6"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/IntakeMappingQuestion.cs",
+      "bytes": 443,
+      "sha256": "7c7920cfdd95aa2d7b6bb78b79c18af1e72f0ee2ceadf6fe5fe87e2d79ed5a5e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/IntakeReusableRule.cs",
+      "bytes": 5542,
+      "sha256": "3e3273233e0cb204dbb445020e503e1d50f2f0fdae7a98f909936474470eb9ac"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/OrveauxAocPairPolicy.cs",
+      "bytes": 7286,
+      "sha256": "4e393c51c155fdf0471c79b84ce9f8fcccbd11be32829ec567ca0d18bfab1c24"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Application/VintageNotation.cs",
+      "bytes": 1578,
+      "sha256": "fb1458500c2f1c1e4115040b4dc7fc7d3a9ebdb4cbe892e946d4c74d08df44fc"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Domain/CatalogSearch.Domain.csproj",
+      "bytes": 37,
+      "sha256": "e6fcb8e1e93a724d47a829cffd19d47840a5eb088e9ace43f3a34bbaf1524b07"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Domain/IngestionModel.cs",
+      "bytes": 3040,
+      "sha256": "e6916dac73bf910de4ea0720c10d533522566d4c4713290b7734a79fbf20761e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Domain/Model.cs",
+      "bytes": 5333,
+      "sha256": "66d57910cb2da4821644b7af390b666efb9df3766e6143dee2e5313d845213ed"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Domain/WorkflowModel.cs",
+      "bytes": 1148,
+      "sha256": "d64588b1d1a7f3115ee83409f4e3b863e10e31c178d5a809b3258cecbefdec98"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.ImportCli/CatalogSearch.ImportCli.csproj",
+      "bytes": 343,
+      "sha256": "4af2678fd8d5ceaa6da0fb4acc40f73fe62203dce901a9671b4c503e98e1c42d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.ImportCli/Program.cs",
+      "bytes": 5431,
+      "sha256": "ed951de48ac5c1db20e198ce80a6d6a423a71e02c0c90f803d8577a1683a1394"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/AmzInventoryParser.cs",
+      "bytes": 3420,
+      "sha256": "69b618122ccc949df947a91f165f9eff000275f802ffdaffcc783a226ec53a50"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/CandidatePolicy.cs",
+      "bytes": 1067,
+      "sha256": "585c1793aeae7e99b34c6de316a0159896a89a6702f3c301fdd016066fa35923"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs",
+      "bytes": 9017,
+      "sha256": "4eb2a2ffcf820fabdda2736adb2e47815e92348d818f220453749a558930b577"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogSearch.Infrastructure.csproj",
+      "bytes": 548,
+      "sha256": "c322b16f257631a55f922e59b53597ae5353f3609bae119607241cf27fd7ceb2"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogSearchDbContext.cs",
+      "bytes": 2036,
+      "sha256": "d6188b74d387ec240446f6a4c47ad31c08645b62f908b50625176fec650d3720"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/ContentImportService.cs",
+      "bytes": 1748,
+      "sha256": "f93b4567f4718e6eb37622e8090716f1f51bbc94cda4cc592145bb41fccf1c00"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/DesignTimeFactory.cs",
+      "bytes": 499,
+      "sha256": "ea8e7719c2636a16c0baed01e04d81ed98152e9cac7cc04a53d1a619dfa6b817"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/DisabledEmbeddingProvider.cs",
+      "bytes": 442,
+      "sha256": "cd27f1a4f5d98212fe8e4b4f0f3682433ec7e7ef21368ad4187b3602297794d4"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/EneosInventoryParser.cs",
+      "bytes": 4646,
+      "sha256": "8a7d8485adc2f8c29db012d04cc3c92fc59fc4bfcf1bcf52225099ddf8ed4f20"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/EneosInventoryStore.cs",
+      "bytes": 9328,
+      "sha256": "abb1a58a12c7333c85e3268575c4a0a4920fa0cebf21a2d983778f3b2b5686d0"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FileWorkbookSource.cs",
+      "bytes": 386,
+      "sha256": "d34458a3eec59140c4d6ce33fb3f4202f1db5cb8fa08d4328d324565f499c834"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FixtureInternalProductSource.cs",
+      "bytes": 1576,
+      "sha256": "7dac11d9832f4eb51028cd0f4746a3232cf6e1808dd19536bb946d9bf3737ce0"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FolderDuplicateLookup.cs",
+      "bytes": 1610,
+      "sha256": "25f5572292bbcae3818211d86a9a5dd3e70c35427163ca2f159d208bb38b38d6"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FolderImportService.cs",
+      "bytes": 20455,
+      "sha256": "40833757a80ade478e30a9d265d25bae6cf3154d07ba5a16226f6d804deb6ffe"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FolderPdfReader.cs",
+      "bytes": 4090,
+      "sha256": "3a239e5e88f16b4eaa767ece613d48d2114afad0bf7ae7b69c03e53348e7fcd4"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/FolderXlsReader.cs",
+      "bytes": 3645,
+      "sha256": "584f57fcab3c2e62a955b356d261b6c94cfc38f6e8c42d578419e02f8a2ace56"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/IngestionMapping.cs",
+      "bytes": 5552,
+      "sha256": "5b544d2a0baff1d9e2dce31c14bd22a0fdebc29b21933b8e410dc95b2c1bd8ca"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/IntakeOriginalPreview.cs",
+      "bytes": 4068,
+      "sha256": "0d48109956b388387e35394c1f6654ced5e6f3690fd97f38c6ef90f1ce316656"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/IntakeReusableRuleStore.cs",
+      "bytes": 11035,
+      "sha256": "206eff5e3b8f70cdedad94e547680ba4a605dc1ba525a01d4dbbb68e871d2a71"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/IntakeReviewStore.cs",
+      "bytes": 20332,
+      "sha256": "4dbf49b01137ffe218e7f48f12ae6175b088903be302d01619904c0c9802e1e5"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/IntakeRulePublication.cs",
+      "bytes": 3396,
+      "sha256": "a7b7873624380d6992b84d1df3b35ffaaa354f61efc101c4441ca12b246da099"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/InternalSyncService.cs",
+      "bytes": 3428,
+      "sha256": "c154856a93fe51b98d5350cd1a8aab801bcb3e8b298b7ed68af55a492bf7bb5c"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/KinoshitaInventoryParser.cs",
+      "bytes": 2659,
+      "sha256": "cc1d34296d65a10e1dc31c9196a3b62c44d4a7546be060843bda700852fc46b2"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LaVineeDuplicatePolicy.cs",
+      "bytes": 2487,
+      "sha256": "a920da1f6bcdfb7b3553f9ab7f5697d8c126360b17d22681c58b9d20d2dff125"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LaVineeInventoryParser.cs",
+      "bytes": 4953,
+      "sha256": "55b75cf4725c5139dfd6af4c459227f3bf2f7d53a388b315e32e8f752ad7de7d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LaVineeInventoryStore.cs",
+      "bytes": 7788,
+      "sha256": "f2f0ba130c5a4e6723a8f8c05e546800ddfc23e9977f82e3fed83afc2e63824e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LaVineeMappingReview.cs",
+      "bytes": 7516,
+      "sha256": "0b7103124697a4857378e9e0a4b06240ee9baea44f057af0f8aca59e4e071450"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LeCaveauInventoryParser.cs",
+      "bytes": 5236,
+      "sha256": "5ad07408aff5bde9ebac44a70f5bc79093e9ecd064ad27bb42f8a7e40b273790"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LucInventoryParser.cs",
+      "bytes": 4802,
+      "sha256": "5738705ada19b6bb8118ff73dcaf6e6f30b571c7f744e608de048be380118df9"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/LucVolumeReview.cs",
+      "bytes": 4194,
+      "sha256": "2bf90f4fc67a35d2f736cafeeb13a24eb1253de74e39e888e715d28c89360393"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/20260917000229_InitialCatalogPersistence.Designer.cs",
+      "bytes": 26432,
+      "sha256": "4f4ffae7f752f61e434ee581385ce0049319e4151cdaa2a97738160259726274"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/20260917000229_InitialCatalogPersistence.cs",
+      "bytes": 27403,
+      "sha256": "ef0f9ac057a93f3d7e934fbf2fee09ede9475ab7a676d2a3576f5d26a1715b1f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/20260917015338_CatalogWorkflows.Designer.cs",
+      "bytes": 30451,
+      "sha256": "eb9ba6822546dccc4ddce48d7154e21f13cbbbc9b42b1862c9137459fddc9582"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/20260917015338_CatalogWorkflows.cs",
+      "bytes": 5847,
+      "sha256": "3f0a4c5b946b91e4b1042f0f429ee2be058c458e2db1ec2f7dcf2d733b324893"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/Migrations/CatalogSearchDbContextModelSnapshot.cs",
+      "bytes": 30351,
+      "sha256": "bb7cf80543c706fe7261a0726a0c5e65b309a34db9700c2a4883f2677751e8c1"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/NaturalSearch.cs",
+      "bytes": 13947,
+      "sha256": "5824b56a4578ef914238aa6457e3f39631765f70630ca6cf2876f8b6241c9ad8"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/NouvellesInventoryParser.cs",
+      "bytes": 5224,
+      "sha256": "01b3eaadcf7dc78671b0535b4feb9b3b7d81620114d32477c17afb49bc89bc8f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OriginalRenderCacheVersion.cs",
+      "bytes": 893,
+      "sha256": "a5d34cbdbd406b99d2f8763b1d2928051bfafbc6335b07431bc195f98a4f5580"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OrveauxExactPairImportStore.cs",
+      "bytes": 11279,
+      "sha256": "83033afe2cdb2b965e5f29683a84e3de7c476cb1f6b2a9dd159ecb60f1d83ed4"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OrveauxExactPairStore.cs",
+      "bytes": 5890,
+      "sha256": "e392592d3d85d0bab5a21eee6115fe08da1c00f549a8ed50b51e89c4bd2d0288"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OrveauxExcelPriorityStore.cs",
+      "bytes": 10664,
+      "sha256": "8e32a0e822f5bc85902ba6464c9af329dfa80d5e4303d697ed86ba715aae379c"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OrveauxPairReviewService.cs",
+      "bytes": 2731,
+      "sha256": "cf6107fa0b94bff69ce00212db1eb350aba1986e70a7f18275bd63c915605531"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/OrveauxStockParser.cs",
+      "bytes": 8302,
+      "sha256": "d204fbadf50c90f00706bad5c695b6fbb01c6c240432612ee7f7d81477b4920f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/PostgresInventoryStore.cs",
+      "bytes": 8670,
+      "sha256": "466a7fafead4a2b314584c00c5983d8c4ac900d8bd4edaf8275d3263ef7c9133"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/ReviewService.cs",
+      "bytes": 7440,
+      "sha256": "7e9b4b615a32caf89e68e2da6c62670d3f94e508ff49e1d2f1d0f631b74e013f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/SearchCatalogSnapshot.cs",
+      "bytes": 6862,
+      "sha256": "4f1025740fe5d176d322188324a38af069e04ad51280afe1fee01bf0435095eb"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/SearchTerms.cs",
+      "bytes": 425,
+      "sha256": "2083810c640aafaf85c1e9e06cb86d8605697f3f33bdc398dfbe19955febcc8d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/SpecialPurchasePrice.cs",
+      "bytes": 1358,
+      "sha256": "a0563bbc1ada7371df04ea67bf2d45fd842ba9e45a222866464506c24e3a0485"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/StandardCsvParser.cs",
+      "bytes": 3147,
+      "sha256": "924cee54e8b7ab742c0f4429c453a50927954a8b80773362414e7ca12f453f57"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/SupplierExcel.cs",
+      "bytes": 1840,
+      "sha256": "dc80649b99eb2b56552e99836c5acf399eadd4864def501652babda08772807b"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/ToaPriceListParser.cs",
+      "bytes": 3048,
+      "sha256": "8cb04808336c0896cbec11923ef5503b4ff73eda0a41308beb5eca50e700864e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/WineToStyleInventoryParser.cs",
+      "bytes": 6224,
+      "sha256": "37e7c9b2a00824f75020ee9f1382f8fe72cadb5c405bda8d22b97ae1a648c96f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/WorkbookMappingReview.cs",
+      "bytes": 838,
+      "sha256": "38cdcee3a603f1c4f15a2d8d3d6c31cc337f0f6e78bebf6d5ca139da74d3f614"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/WorkbookParserRegistry.cs",
+      "bytes": 2951,
+      "sha256": "c9c61d28ee6257a5e5e74caabba4ebe892d5502692b3bcad542c17c20c0d1599"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Infrastructure/WtsStaticWorkbook.cs",
+      "bytes": 5184,
+      "sha256": "31a4cb9439eedd98c7047a08dc3a2335901579ada3b42f8f799691529f97360f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/CatalogSearch.Web.csproj",
+      "bytes": 1344,
+      "sha256": "f5616e466edc1318d0cc676e8e306e76129f83809e0ae06a2ee8f95ba5375004"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/DateProposalEndpoints.cs",
+      "bytes": 3202,
+      "sha256": "2a3d77a9b8a545f33ecb3f9b93606d1617a8e1b0334604d5b2a2dc9c0792bbf7"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/FolderImportEndpoints.cs",
+      "bytes": 3527,
+      "sha256": "579b64dc67246d4fbbd114c1a4338e9d5c046572e145275fecb72daeb51264ba"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/FreeTextSearchEndpoints.cs",
+      "bytes": 2173,
+      "sha256": "fe1cf0a403d977e528f41e0e5f59b5802fd6df27892af896f31386ac716fa853"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/FreeTextSearchService.cs",
+      "bytes": 9755,
+      "sha256": "3bc133ff3bb6ee119969f626f5a99d0d15b19c71035028376d1c43c80f1e7647"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/InboxWatcher.cs",
+      "bytes": 4274,
+      "sha256": "99c005e3460d563758af05171a88654ecc68cddd5e9f2c56801eed66fab68ab4"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/IntakeReviewEndpoints.cs",
+      "bytes": 6677,
+      "sha256": "79225750ce5ca38938ab326383efff062430a18a013ac4c61baced82bb6f8589"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/IntakeRuleEndpoints.cs",
+      "bytes": 4798,
+      "sha256": "35d8e87967873e04a74cfee6a154cb44746876f2be33a2e31c9eeb34b39c55c5"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/OriginalRenderEndpoints.cs",
+      "bytes": 6420,
+      "sha256": "2b7e3f0c6c0063e5daf2b976e7a7f37c2c084745bf4e10eb42493f032c799964"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/OrveauxPairEndpoints.cs",
+      "bytes": 7879,
+      "sha256": "a1599b474d7c36698946f432b5023769961bb483a69bd700b10ed4a45f32d40d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/Program.cs",
+      "bytes": 7169,
+      "sha256": "c43b79d603522004759130a17a812e2f4ca4fcc51b14e3de1444fddf17af91ff"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/WorkflowEndpoints.cs",
+      "bytes": 8196,
+      "sha256": "24b08018a54a2372f7b2bb8145f3d1ebcb951e82b719332b6e8b8d8e89d4355f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/appsettings.json",
+      "bytes": 317,
+      "sha256": "cdfc081871ee29203c8cd15cda63f79c13b492d1a8688e8b9817004fc72470dd"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js",
+      "bytes": 2057,
+      "sha256": "8a36e8e9651b096afa698539be786e462ac8748574158b29d79573110d29575f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-sort.js",
+      "bytes": 1186,
+      "sha256": "f8a0b92012ab9b09299e81a82aeb9f694db6ed321785ffb8a7139da82439e62d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.css",
+      "bytes": 6119,
+      "sha256": "df04c911a3bbafe451c6afae965b648edbf44a8d5e81805c76c485fc96b9d01c"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js",
+      "bytes": 18454,
+      "sha256": "972df88e052ad49af61646d2b606eb0818e93e30f88baa51d73f3a52ab0cc9b7"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/date-proposal-review.css",
+      "bytes": 459,
+      "sha256": "9c80e2b8ca9054a9bb93c37d335802af81e65f40041a359697b94aea933691f9"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/date-proposal-review.html",
+      "bytes": 1274,
+      "sha256": "38bf43a447c1c110b87d65ae4afe15ac30a4b0c728cdfea32b1362d6a5a0bca1"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/date-proposal-review.js",
+      "bytes": 2969,
+      "sha256": "957ff63209d3caf67a594fe0ef64fe6a8012093f16e3d52770197c171343ee01"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/folder-import.css",
+      "bytes": 635,
+      "sha256": "0683cc656b71a41a1b8ff4f4c3399affea1c2fc548aca7f11e27a37f33fa68c6"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/folder-import.js",
+      "bytes": 9108,
+      "sha256": "f52c8ce6759a09d5ea80c57ce613dfcf253c1a887562094bd2d62b77ecb988b7"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/import-guidance.js",
+      "bytes": 2948,
+      "sha256": "1282f4a009403add80bd51c639ef420de65438921eaf6ead4ef2c0d86ea7203e"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html",
+      "bytes": 7639,
+      "sha256": "0a0829f994110f577a8a77cd3eca708b3b5e6416e0411e682f7d1ade25561289"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-review-flow.css",
+      "bytes": 4523,
+      "sha256": "35f83e3e699c8e1df62c5312e4f61655c27bbd46459b589e5bedabe478770f90"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-review-flow.js",
+      "bytes": 35504,
+      "sha256": "d059be38992dcd872d3f4dff4d9507e0669c52b60372da1b5f79196cefddc56f"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-review.html",
+      "bytes": 7389,
+      "sha256": "8428add3eb8c9d0f89a3240a86591f04410d7ab1b05c99c2ac0f572823085d21"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-review.js",
+      "bytes": 1982,
+      "sha256": "a4b56ec941967f49d14c8cf09402d2a673e366df175f2042ba634407fc1956f1"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-rules.html",
+      "bytes": 1416,
+      "sha256": "cbb3a880a8a3f7cc8aa539e1e2249ab59ff5c6ee683f27d07462c254800cc55b"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/intake-rules.js",
+      "bytes": 5269,
+      "sha256": "04c878aa4fc426245ed2485194a560136e93b926e1a0e95c7078da807053720c"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/original-render.js",
+      "bytes": 12867,
+      "sha256": "56853b0c89968e3ef536712b427b280aade63b101d37b62a5e3ee6eea150ff17"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/orveaux-pair-links.js",
+      "bytes": 1637,
+      "sha256": "2cefbb789b04181c057af70fe1d3061435b932973de9a1bf1fc22079eb0f953d"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/orveaux-pair.css",
+      "bytes": 629,
+      "sha256": "9fb6a7b7e9a32bad9769a85847dcc37cb6cf8ebf78101f0467f8115775d6dbda"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/orveaux-pair.html",
+      "bytes": 3132,
+      "sha256": "0565a45320d50a349add43dc76fcf662933f46bc1aede97c62ecaf1b42a21f43"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/orveaux-pair.js",
+      "bytes": 10558,
+      "sha256": "738b284df04c2d0b2e2ea0f8788c8a2b981c49c69493971bd8da14bd7d1d96a5"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/rule-preview.html",
+      "bytes": 1282,
+      "sha256": "7a86aa111ad9d98bcf2633426b01cfb9f1458ce2f55354b70035878f642bcc71"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/rule-preview.js",
+      "bytes": 1066,
+      "sha256": "dc6554a72c759b1fda95790d8d268fcc2e93edabf9789462b9f34ff1b9f35641"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/samples/demo-2026-09-17.csv",
+      "bytes": 444,
+      "sha256": "829dfd12ad040272d3335d658a1e82aed0ca9d0874c1155a429dfebb0ce0184b"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/workspace.html",
+      "bytes": 10195,
+      "sha256": "812770cbfdc5119d2568c2da931c00ee2c79fad16e59effd4984ec4541ff7cb0"
+    },
+    {
+      "path": "catalog-search-poc/src/CatalogSearch.Web/wwwroot/workspace.js",
+      "bytes": 8968,
+      "sha256": "7a4977771bf0c27265a95de6751bee28a3b848d09cb8034958f9c5f0295e96c7"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/AdditionalSupplierTests.cs",
+      "bytes": 5706,
+      "sha256": "e242ee5d36b16ebfeffd3037d781e2d8b6fbc8452500c72c741942bcfd8067ea"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/ArcanRetailFolderTests.cs",
+      "bytes": 2533,
+      "sha256": "5fde13f455de65bb6aef718548aae4e9624b465bc8a5169b1ae7997b7d213c9a"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/CatalogSearch.Domain.Tests.csproj",
+      "bytes": 498,
+      "sha256": "1150c646d5c45adda0c144e3627697288c81b271ecbf8c4143eaa305d6adc0d5"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/ConfirmedProgressTests.cs",
+      "bytes": 3312,
+      "sha256": "02934d61f67dbc4fd2d799193d881013e66461ade26dcaafab943bebd5f35719"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/EneosRowTests.cs",
+      "bytes": 7345,
+      "sha256": "5c508558ea03ee09131b9bc304cb430bfa16a6f3a6261d11774442b9d1620d08"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/FolderImportTests.cs",
+      "bytes": 23868,
+      "sha256": "d473cab9e02627d6118905203d11e3d9f90b8cc9274960e7aa090264f2406af8"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/FreeTextSearchContractTests.cs",
+      "bytes": 7133,
+      "sha256": "9389e8093df9354189602b8273e63aa63df1b20089178776005c2c4d45b82632"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeReferenceProposalTests.cs",
+      "bytes": 3348,
+      "sha256": "0dfac65df0aef6a56a3eddd1e74dc5f610a6009c5303ad3f769ebf2ee36ed345"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeRepeatReceiptTests.cs",
+      "bytes": 2207,
+      "sha256": "3761d5a87252e6b546a2dae1c68f24adce9c81a9f7bfc9246b72668bda885c68"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeReusableRuleStoreTests.cs",
+      "bytes": 14113,
+      "sha256": "7ec58f6651a3c6fcc527e27e78166e88d759c18ae1c020a41ed693c8f79ba78b"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeReusableRuleTests.cs",
+      "bytes": 3928,
+      "sha256": "9e1475244b1eed2a736a9f61891e9998ce1042cf4d998083159bfc4d68d0b7ce"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeReviewTests.cs",
+      "bytes": 5312,
+      "sha256": "fb6bfba74d6bbc877b59601a0365228cae0973c01c785046c86af42ac3475f65"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IntakeRulePublicationTests.cs",
+      "bytes": 5266,
+      "sha256": "13448a5a745379bc352c89bb7b91d8c6a142af5ab93bae74d455b56dbafe9067"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/InventoryParserTests.cs",
+      "bytes": 1122,
+      "sha256": "7385ddbd88ecff078a91b3d4a79919c6b57aaf99ce2930f34aeca7d63e010a73"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/IrohaFolderTests.cs",
+      "bytes": 2802,
+      "sha256": "ec0b2dbc544827adf19e8cb17ae8caeb854b43595bf7e14d78f0759d37016042"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LaVineeDuplicateDecisionTests.cs",
+      "bytes": 2820,
+      "sha256": "e7355f63890929a898d5f4009df885d7cb3c9df0a0d50c4309f383d7c4edb2b2"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LaVineeMappingTests.cs",
+      "bytes": 8748,
+      "sha256": "3912e211511c512322956045c8fa2bbed28a20f9abbbe399c05e277627d6ee8e"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LaVineePartialServiceTests.cs",
+      "bytes": 9867,
+      "sha256": "875bbede04a21c55c5dd3aeb825f315c09027ea2aa1d1c8b6620c3bc9feaf60d"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LaVineePartialStoreTests.cs",
+      "bytes": 5353,
+      "sha256": "9600d5738bcf931c8b62e53acc103a0c4769d39b6d945303e615c3dee93ac3a2"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LaVineeReceivedDecisionTests.cs",
+      "bytes": 4891,
+      "sha256": "16826e8850f331c31d2a337be943a3ac3e2834f0501cc5fc99a9ebb34dc975ec"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LucInventoryParserTests.cs",
+      "bytes": 6325,
+      "sha256": "42b93f4b36465672aa121b05ce224a35c2b1bdfd30208430858652aac0b6a0d3"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/LucVolumeReviewTests.cs",
+      "bytes": 4537,
+      "sha256": "b868978670a5a1316b0b2c507804f1021da75a6c67f4017caa08234ce0936826"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/MappingWorkflowTests.cs",
+      "bytes": 8349,
+      "sha256": "d8f28be6c586feb0cb73bd0f73e7ce52f0f340d984d6afdf8b88c53f1873e101"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchPhraseMatrixTests.cs",
+      "bytes": 6445,
+      "sha256": "ba862f5faebfbf025c68d7101755fd52ea641ccf00a44eacb373a3ca44950dbb"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/NaturalSearchTests.cs",
+      "bytes": 6509,
+      "sha256": "8a14f08b14f01e282c837b451e8a69e185fbdc7347ad0afa89a64a147521199d"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OriginalRenderCacheVersionTests.cs",
+      "bytes": 2120,
+      "sha256": "c034b622dbfecf2cf491d3c91831ec6493f4c391cb34b0d5ecb77a7e40685cfc"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxAocPairTests.cs",
+      "bytes": 6580,
+      "sha256": "77dc555de8ac4b74626823776e0542d7194ad67de6159f7f192d2919a4c4a634"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxExactPairImportTests.cs",
+      "bytes": 7761,
+      "sha256": "9f9f0ee511fdada2f554eb95f929ae0cda9ce27942453e34a37c31d7dab064c9"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxExactPairStoreTests.cs",
+      "bytes": 5365,
+      "sha256": "9d884040468843ef9a44bc946c72f1d534c525c5b6b8e0f76876355ca81d0443"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxExcelPriorityTests.cs",
+      "bytes": 10429,
+      "sha256": "3da13dd77444b26b7d62ee92f4d38df31e809c685d6dc0f82fa5ff977ae08c7c"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxPairReviewTests.cs",
+      "bytes": 4731,
+      "sha256": "c074f4a097e468f788444e2902d69022999c9520c761c69c500b5d9b20ec7b7d"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/OrveauxStockTests.cs",
+      "bytes": 8588,
+      "sha256": "ac34179a5e47b16816cd2fbd6c4bf9e254673ba1238b8600f438f6fff6253412"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/PartialMappingStateTests.cs",
+      "bytes": 2114,
+      "sha256": "784df0a63736d0a98f67ac1694d0aeb05dfa04d4ae597004ad22dbaf1da19c90"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/PdfFolderTests.cs",
+      "bytes": 8791,
+      "sha256": "442459e594128697a4992dff2cbcd42aa945298100ca0fe42fcbf24b83a3809a"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/PersistenceTests.cs",
+      "bytes": 5149,
+      "sha256": "192a5be5c0c9dd2a266e8581a73b5407266d0e7716024d917389288c8806f062"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/QuestionRefreshTests.cs",
+      "bytes": 7226,
+      "sha256": "932947ecb53872c3d3b8ada7bc11c4c13552fc66f5e5e98db0d04b1a1fda31bf"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/RealWorkbookAcceptanceTests.cs",
+      "bytes": 6782,
+      "sha256": "492d14bffb78e60fe8e5391b4ff9af83da3cc971e590b49e9f813e195ad7ed58"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/RuleUiPriorityTests.cs",
+      "bytes": 1995,
+      "sha256": "e68aa453bed7a631b35e0c750b0a5270d2d97a7ced36297d8bbec9a19f16c06e"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/SearchCatalogSnapshotTests.cs",
+      "bytes": 2997,
+      "sha256": "cbc47b76d623d9a4fd47fff7f9fa7e41eb0944514af7f33cb3089a17323ecbce"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/SearchReviewTests.cs",
+      "bytes": 4321,
+      "sha256": "8d8cbb1824fcb2bcb5b040a3df6127524e74616e2d1692d8b3f191e690ad1d8b"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/SearchTextRegressionTests.cs",
+      "bytes": 4618,
+      "sha256": "2b9c2a592fb79413b512e70f1f6f186a469242da7f2ab6fe75f37c89b6a8afda"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/SpecialPurchasePriceTests.cs",
+      "bytes": 1440,
+      "sha256": "c786c1b8c59ae3ed0d651571540d0825d0b28b2d75252868010a2cb0623045c4"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/SupplierNaturalSearchTests.cs",
+      "bytes": 4103,
+      "sha256": "bfb9006b492b0713309e11314a65c2610281480ca91559cd5ca9ac9af6780468"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/VintageNotationTests.cs",
+      "bytes": 4122,
+      "sha256": "2951a51816a07cfc4346447df8a709271002828b195cc7625aea77a0983f8c11"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/WineToStyleInventoryParserTests.cs",
+      "bytes": 2575,
+      "sha256": "00bd3640876c112bd149fd436e9edafd4820f5b68d9331adaa1d251cdf1945fc"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.Domain.Tests/WorkflowTests.cs",
+      "bytes": 6004,
+      "sha256": "49ab60e750930ab397e8851c8ec7f08486557ed965cbee410f68e8992f3a149d"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.FreeText.WebChecks/CatalogSearch.FreeText.WebChecks.csproj",
+      "bytes": 208,
+      "sha256": "621b12ed2f80a70e62b70f1dbeaeca3216fea532e030feec2571af624187f0cd"
+    },
+    {
+      "path": "catalog-search-poc/tests/CatalogSearch.FreeText.WebChecks/Program.cs",
+      "bytes": 7730,
+      "sha256": "286d8d306122ffc5d6f5835d2e174bee73ce38283a0d2f855c621e9c6bf6856b"
+    },
+    {
+      "path": "catalog-search-poc/tests/verify-folder-import.cjs",
+      "bytes": 8674,
+      "sha256": "400878625e79315b7c3b1e5c0e8e9cb6bfb8f7315a92293fa2ad1cddf24ae6e9"
+    },
+    {
+      "path": "catalog-search-poc/tests/verify-folder-ui.cjs",
+      "bytes": 10001,
+      "sha256": "41756509cf6e340146313eacc263e2177f8699acbaa3c4762dbedc0aaa1479ea"
+    },
+    {
+      "path": "catalog-search-poc/tests/verify-folder-unknown-stop.cjs",
+      "bytes": 3948,
+      "sha256": "5acfcf7111e0d4b9d473eb0227d79817858fc679e9d374156e763f7f746312ff"
+    },
+    {
+      "path": "catalog-search-poc/tests/verify-selected-csv-regression.cjs",
+      "bytes": 6229,
+      "sha256": "77aaeb1f69ecd3965c9f60b584db3f727122bc709359ac70444deed4af5850f3"
+    },
+    {
+      "path": "catalog-search-poc/tools/Start-LocalDemo.ps1",
+      "bytes": 2912,
+      "sha256": "8c67eaa8df638660ea010983b2ebc4a4e3340f3ee5025b4bbaad4ea9a3bc0761"
+    },
+    {
+      "path": "catalog-search-poc/tools/Stop-LocalDemo.ps1",
+      "bytes": 919,
+      "sha256": "85d8b3e85584326c9311bd2d551ff2605d7827f7debb8620c27182d5b4b7d138"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/README.md",
+      "bytes": 3791,
+      "sha256": "8c252928e1e9d8c9d0f50424d3de272bae96a1252d3c7d8a5abbdb48af2a8420"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/ENEOS/01_2026-10-01.xlsx",
+      "bytes": 5503,
+      "sha256": "89a9d88e86b48a26eb3f37a93cf29932931d04f91862a34a901d6a2602a9a369"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/ENEOS/02_2026-10-01.xlsx",
+      "bytes": 5445,
+      "sha256": "ddf283fc89473d113731a84b6b24d98d98ceb2950abff420aadc2cd4d5125219"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/ENEOS/03_2026-10-01.xlsx",
+      "bytes": 5445,
+      "sha256": "a3a8b93892eb07647aec0523f330bed6c9766a6e60abd0078eac7f7f83db0dd7"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/ENEOS/04_2026-10-01.xlsx",
+      "bytes": 5514,
+      "sha256": "614cbf51ccd249b01cb48cf0c203bc9a3a8490fce66b2c09a4775fcceab05244"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/LUC/date-question.csv",
+      "bytes": 114,
+      "sha256": "2146d0e84b4ad2b10f9d8a70367d77f24b8b507266de44bd3e9d17bcf7733b67"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/LUC/synthetic-original.pdf",
+      "bytes": 191168,
+      "sha256": "e61840331880be50687270fabd1bb38a77bad84965ada3c0a31762afe49ed1e4"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/proposal-request.json",
+      "bytes": 381,
+      "sha256": "5151e042e86a453d968d954b595575c73fd10478d321a2303c4f2579567c6d97"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/fixtures/proposal-response.json",
+      "bytes": 500,
+      "sha256": "0ae610329c0fb63692bf1ccf44d11198311a199d47131669846a8084973b6c9c"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/generate_fixtures.py",
+      "bytes": 2266,
+      "sha256": "92ab94872182d57e0f9d1eedbc93a5b4c7953449971bd6b024525b5c9549234f"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/package.py",
+      "bytes": 2102,
+      "sha256": "568f9155d166f87777c419daf39747d02bde4ba5065d00ac7759c8944d487615"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/source-review-answers.js",
+      "bytes": 6745,
+      "sha256": "256d33944d90cf54258b5719d19df07c8f2da6d9bd855f3d07f1c80bb7c94f96"
+    },
+    {
+      "path": "catalog-search-poc/tools/cloud-review/start.sh",
+      "bytes": 1149,
+      "sha256": "8049459c209b1af62ccf4f83e21736c2463c038f75dc0ad317cf6ec16d96f04e"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/.gitignore",
+      "bytes": 21,
+      "sha256": "01d8d0360f02a0c00e236a4eb2a1d8bdf83377acf442eaafad7a136bf14d6bb0"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/LIBREOFFICE-EXPERIMENT.md",
+      "bytes": 6279,
+      "sha256": "66c74bdde0b46f6e1666fdab1af37c2caf63c6ec423dbf33af52cec0130cc784"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/excel-render.ps1",
+      "bytes": 5047,
+      "sha256": "d24d5635dce6225233c05ee4e70b2ae4ebe28012410945f38148def03e0d8f98"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/libreoffice_backend.py",
+      "bytes": 30766,
+      "sha256": "8b8c392f12c1a9a3299483e6c805e50659e2b195a50b5f30a25f16def069e6a0"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/render.py",
+      "bytes": 14356,
+      "sha256": "aa2b0811f09d4312583e63e08a32f1cf2946c760284501145ddc666b33804b45"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/test_libreoffice_backend.py",
+      "bytes": 3625,
+      "sha256": "7a88b250081c732d3588b7a2cd0101e0c71df75376a8f72d9a5fda201648b487"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/test_native_density.py",
+      "bytes": 761,
+      "sha256": "2b24f3ac8387e8a633bcffffebc6dd5bf2b50f12aef66678f8ef4e4c4ec25311"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/test_render.py",
+      "bytes": 5278,
+      "sha256": "2bd6154a47886beac3fa0aa197664f34deadef70305f9bbb6b59965186904ee9"
+    },
+    {
+      "path": "catalog-search-poc/tools/original-render/test_render_dispatch.py",
+      "bytes": 4927,
+      "sha256": "239de69ae8f9b648401a26959214b610f7303f45f46b2f574fb25d6ae08f0322"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/.gitignore",
+      "bytes": 21,
+      "sha256": "01d8d0360f02a0c00e236a4eb2a1d8bdf83377acf442eaafad7a136bf14d6bb0"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/arcan_pdf.py",
+      "bytes": 6300,
+      "sha256": "b425add6ca576b1cd610a329f934bfc6fae6714efa60a92ab4d2c6e1537e1958"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/arcan_price_pdf.py",
+      "bytes": 10148,
+      "sha256": "9948854362a9943f23569efc8e0d2966deb2bfaeec5b2053088a45576ec37a7a"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/daiei_pdf.py",
+      "bytes": 7910,
+      "sha256": "5997bf6fb17733a75c8f935b4fcd13654ce82031e486d3437b8c39a44fa21bd5"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/diony_pdf.py",
+      "bytes": 7932,
+      "sha256": "a25db6c7ef2c8bde68bcddec01e0d3be4dfe4eeb025ba360ec46774edbc671c5"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/linux-dependencies.lock.json",
+      "bytes": 1728,
+      "sha256": "1de74cbc10912eda65e0b3fb6adc14a081c3449211534f1f7f0360cc617c4296"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/parse_folder_pdf.py",
+      "bytes": 8794,
+      "sha256": "b4a29bd585c0dbfab6c2ab45d1e54beb7096b1a369f13203e62feedda90d085a"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/pdf_import.py",
+      "bytes": 8909,
+      "sha256": "b498f18cc68998e9078dd6c95d2cea26fcb95de9ad33ee61611f3c5e7f50530d"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/prepare_vendor.py",
+      "bytes": 3723,
+      "sha256": "a4ee5e4a6e5dcc624af1dc075605def5eee75d7048ab42dc955ee30db4737850"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/requirements.txt",
+      "bytes": 34,
+      "sha256": "c73df6193b970856b708b2c3b696ee3dd9d0f9225a4c10b5ab6513c7a274adc8"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/supplier_pdfs.py",
+      "bytes": 19871,
+      "sha256": "53cb27217863853f9d95e8b72f831cbbd2ef3b0720abd4d4bcee9b009521cc75"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/test_arcan_retail.py",
+      "bytes": 3730,
+      "sha256": "3d9aa86570fb4a36af3db7ecee201d89cf9a3032f5134da189c736a4c78e586f"
+    },
+    {
+      "path": "catalog-search-poc/tools/pdf-folder/test_folder_pdf.py",
+      "bytes": 3181,
+      "sha256": "63b7709babe4e6ad8589e393a7e7b6195191f566bfb43ddd82ed04522d480ffa"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/.gitignore",
+      "bytes": 21,
+      "sha256": "01d8d0360f02a0c00e236a4eb2a1d8bdf83377acf442eaafad7a136bf14d6bb0"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/README.md",
+      "bytes": 4986,
+      "sha256": "c014bc7814c981b5f81b160139e8880c6a7f0e6cf0c19b817023116e9af7d184"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/check-intake-schema.sql",
+      "bytes": 2330,
+      "sha256": "a2971399924faff14ed4cc85c836b66fd2b1c1145b873ef96891a6d3ff0f6816"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/check_intake_schema.py",
+      "bytes": 5740,
+      "sha256": "99fc243394a80afad5029a20fc9c46245d24414a36b0ecdd75fcab5c6b29b5cc"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/schema-guard-cli-proof-20261012.json",
+      "bytes": 401,
+      "sha256": "451d6e77ef1ed1b71906805efdb368ed5ae97159c5de9fc4e1bcffac7dbf8bed"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/schema-guard-proof-20261012.json",
+      "bytes": 3390,
+      "sha256": "3ab22fca6e1fd12bac43c6fbd82974e825d5939a92ad730afb9d89683e58360e"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/test_checker_timeout.py",
+      "bytes": 1118,
+      "sha256": "81581cb03f50e1bc527ace0ae1e6e726ce57565a0377c6ccd9218313c4652d49"
+    },
+    {
+      "path": "catalog-search-poc/tools/production-review/test_intake_schema_guard.py",
+      "bytes": 4154,
+      "sha256": "957f2030acb1cdf78000ad7e59b4a620759a9ec2245a0c836a8ff7e48d3c3847"
+    },
+    {
+      "path": "catalog-search-poc/tools/source-answers/.gitignore",
+      "bytes": 14,
+      "sha256": "6252093f8103b25bf77e3171bfc9952ba9c964480ae8f326dc9c4bb12e6aea28"
+    },
+    {
+      "path": "catalog-search-poc/tools/source-answers/README.md",
+      "bytes": 3135,
+      "sha256": "6bc4cd9c6c14ada4c40f1a37c005b03d454379d36832057bd486219273271eb8"
+    },
+    {
+      "path": "catalog-search-poc/tools/source-answers/import_answers.py",
+      "bytes": 9617,
+      "sha256": "6af287deeebaceb83cdbbb7cc8179c3f47ef3048a11434e2ab97fe86627ad44b"
+    },
+    {
+      "path": "catalog-search-poc/tools/source-answers/test_import_answers.py",
+      "bytes": 7408,
+      "sha256": "1d371a260c1131ef700bcd4e207df16151272eac22bede45fe604f850c14fe78"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/.gitignore",
+      "bytes": 21,
+      "sha256": "01d8d0360f02a0c00e236a4eb2a1d8bdf83377acf442eaafad7a136bf14d6bb0"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/iroha_source.py",
+      "bytes": 4859,
+      "sha256": "6d1862e70694e744c30e0c71332331f13671af0618a93bd4a43642a58039c84b"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/parse_folder_xls.py",
+      "bytes": 2192,
+      "sha256": "e9d367cc9270c85c8b6d99b9fe735349f360b5726f8970e622152b0eaf9a4d21"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/INSTALLER",
+      "bytes": 4,
+      "sha256": "ceebae7b8927a3227e5303cf5e0f1f7b34bb542ad7250ac03fbcde36ec2f1508"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/LICENSE",
+      "bytes": 3771,
+      "sha256": "b5a5dbce60265e305a815a6cb83ed07f24519d8ba644f2a307994488bced8815"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/METADATA",
+      "bytes": 3513,
+      "sha256": "ae263dba4d616210bb2d709cd091ba453984314f79f8f50f44af864352656dec"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/RECORD",
+      "bytes": 1843,
+      "sha256": "f11ac6a842baf96427a2c61d047fe1c1ca6a59fc2da1da28e369cce2877dcfac"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/REQUESTED",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/WHEEL",
+      "bytes": 110,
+      "sha256": "5b367c7308e1f25d23b542cd8d8ab51e9afe582a824603ebfbe4d7e0fe48d56a"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd-2.0.2.dist-info/top_level.txt",
+      "bytes": 5,
+      "sha256": "9d9faddd273f0aa36c72d4b72fe577eaa5f00b90ee005be40758a7240a45fef3"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/__init__.py",
+      "bytes": 7320,
+      "sha256": "926b88133f1cbad6ad1a38d6dc499a0294c481c1e672c628d027161ffb61d8fd"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/biffh.py",
+      "bytes": 16651,
+      "sha256": "1a3b41a08f4f34811d6d99864ef7c343c1ee85988b25dda87dda36aa6ba7ce60"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/book.py",
+      "bytes": 57527,
+      "sha256": "d4b1f1c9631be74641230525642e14b4815e9b9cbca3c337cc00dc74f085ffce"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/compdoc.py",
+      "bytes": 21091,
+      "sha256": "df191fb896cb44644c74f899541b160201a4b70ec99dafb0de9fe5713093e984"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/formatting.py",
+      "bytes": 45573,
+      "sha256": "e8c87a18e33b1594e3d1c2781474a5d02568fbc227603bf6288653332704c3a4"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/formula.py",
+      "bytes": 94460,
+      "sha256": "72011735609a6152b3219c1aec85b4b43702d485f352f86a25750e2fbe57a1ac"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/info.py",
+      "bytes": 36,
+      "sha256": "030b2f2f9ed9fa598a0c368205f515a24c0cc0fbc92e7f638c6b6a3fd81ebcec"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/sheet.py",
+      "bytes": 106806,
+      "sha256": "9a1c04a84b5e508418f632b90b25fceecb6e9363265d444e35ff3a91940c858d"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/timemachine.py",
+      "bytes": 1757,
+      "sha256": "ec2b54ec563a9905bb1d23f91633352bda487cd7b1542b7f3c95c6d8cdc51007"
+    },
+    {
+      "path": "catalog-search-poc/tools/xls-folder/vendor/xlrd/xldate.py",
+      "bytes": 7934,
+      "sha256": "4beb9468b5fc91ab86cb64a45ff33e4be141aaa43a1fd11f4c0569bf914c5f42"
+    },
+    {
+      "path": "catalog-search-poc/verification/Test-ContainerScripts.ps1",
+      "bytes": 1823,
+      "sha256": "16c4281b2e0c4a8d74e4cf2568cc25c82546963f7a77e161e3020f8075f58090"
+    },
+    {
+      "path": "catalog-search-poc/verification/test-container-deploy.sh",
+      "bytes": 2421,
+      "sha256": "16e39ad0e445cf3cf7228a4435f64f285fdfeb67f84a9427f6c472372ff5fb1c"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-container-db-gate.ps1",
+      "bytes": 2471,
+      "sha256": "df39b4f74692793cb7b33238fee50df1b339582f6e85374528353703d9771367"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-filters.cjs",
+      "bytes": 3752,
+      "sha256": "93fbf68486fea335d9786edbdd2b28481285442bd8861cbf9a142dc9f89a2ab0"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-keywords.cjs",
+      "bytes": 1300,
+      "sha256": "9f6da023e0cc3b48e1a822beafcfe364919cd5db41ed1d4d124a89f797d75214"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-persistence.ps1",
+      "bytes": 1077,
+      "sha256": "1d67a3802051b630c95a7108118b89f4e39030e68ad73f6656eba80b00c92f65"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-sort.cjs",
+      "bytes": 4646,
+      "sha256": "c3d6ffd5b7089dadcab7f684fd6531a9a6b20ba7bcc491e45791be685b96e29f"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-ui.cjs",
+      "bytes": 4093,
+      "sha256": "ab35cfdfcd69c80f09797904a8afe09e922213cde2e2cf570a14ce8f2149fa0a"
+    },
+    {
+      "path": "catalog-search-poc/verification/verify-workflows.cjs",
+      "bytes": 7799,
+      "sha256": "09b9ff428f8005435a39b4edcb3aade460abf2eeb5449935a70ced6ddf0e243c"
+    }
+  ]
+}

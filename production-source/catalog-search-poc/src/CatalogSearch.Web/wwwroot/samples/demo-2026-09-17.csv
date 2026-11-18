@@ -1,0 +1,3 @@
+SKU,ProductNameJa,ProductNameEn,ProducerNameJa,VolumeMl,Vintage,Price,Tax,Inventory,Type,Country,Region,JAN,Grapes
+DEMO-SKU-001,確認用サンプル ピノ・ノワール,Demo Pinot Noir,架空生産者,750,2023,4800,税抜,12,赤,フランス,ブルゴーニュ,,Pinot Noir
+DEMO-SKU-002,確認用サンプル ピノ・ノワール,Demo Pinot Noir,架空生産者,750,2022,5200,税抜,少量,赤,フランス,ブルゴーニュ,,Pinot Noir

@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Installed root-owned, invoked through a narrow sudo rule. Never source release.env.
+set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+ROOT=/opt/catalog
+STATE=/var/lib/catalog-deploy
+fail() { echo "$*" >&2; return 1; }
+hash_ok() { [[ ${1:-} =~ ^[a-f0-9]{64}$ ]]; }
+value() { sed -n "s/^$2=//p" "$1/release.env"; }
+compose() { local dir=$1; shift; docker compose -p catalog --env-file "$dir/release.env" -f "$dir/compose.yaml" "$@"; }
+current() { local sha; sha=$(cat "$STATE/current"); hash_ok "$sha" || return 1; printf '%s/releases/%s\n' "$ROOT" "$sha"; }
+stage() {
+ local sha=$1 dir="$ROOT/releases/$1" archive="$STATE/approved/$1.tar" staging
+ hash_ok "$sha" || { fail 'Invalid SHA256'; return 1; }
+ [[ -f "$archive" && ! -L "$archive" ]] || { fail 'Package has not been approved by the VM administrator'; return 1; }
+ [[ $(sha256sum "$archive" | cut -d' ' -f1) == "$sha" ]] || { fail 'Approved package hash mismatch'; return 1; }
+ if [[ ! -d "$dir" ]]; then
+  staging=$(mktemp -d "$ROOT/releases/.staging-XXXXXX")
+  # No paths, links, devices, duplicate entries or arbitrary extra files.
+  python3 - "$archive" "$staging" <<'PY' || return 1
+import sys,tarfile,pathlib,shutil
+with tarfile.open(sys.argv[1]) as t:
+    members=t.getmembers()
+    if len(members)!=3 or {m.name for m in members}!={'images.tar','compose.yaml','release.env'}: raise ValueError('Invalid package members')
+    if not all(m.isfile() and 0<m.size<20*1024**3 for m in members): raise ValueError('Invalid package type/size')
+    for m in members:
+        with t.extractfile(m) as src, (pathlib.Path(sys.argv[2])/m.name).open('xb') as dst: shutil.copyfileobj(src,dst)
+PY
+  mv "$staging" "$dir" || return 1
+ fi
+ [[ $(wc -l < "$dir/release.env") == 4 ]] || { fail 'Invalid release manifest'; return 1; }
+ [[ $(value "$dir" CATALOG_IMAGE) =~ ^sha256:[a-f0-9]{64}$ ]] || return 1
+ [[ $(value "$dir" POSTGRES_IMAGE) =~ ^sha256:[a-f0-9]{64}$ ]] || return 1
+ [[ $(value "$dir" CATALOG_COMMIT) =~ ^[a-f0-9]{40}$ ]] || return 1
+ hash_ok "$(value "$dir" SCHEMA_SHA256)" || return 1
+ docker load -i "$dir/images.tar" >/dev/null || return 1
+ compose "$dir" config --quiet || return 1
+ printf '%s\n' "$dir"
+}
+healthy() {
+ local dir=$1 i container
+ for i in {1..30}; do
+  container=$(compose "$dir" ps -q web) || return 1
+  if [[ -n "$container" && $(docker inspect --format '{{.Image}} {{.State.Running}}' "$container") == "$(value "$dir" CATALOG_IMAGE) true" ]] && curl --fail --silent --max-time 3 http://127.0.0.1:55440/api/options >/dev/null; then return 0; fi
+  sleep 2
+ done
+ return 1
+}
+backup() {
+ local dir=$1 destination="$STATE/backups/$(date -u +%Y%m%dT%H%M%S)-$$.dump"
+ compose "$dir" exec -T postgres pg_dump -U catalog -d catalog_search -Fc > "$destination.partial" || return 1
+ [[ -s "$destination.partial" ]] || return 1
+ mv "$destination.partial" "$destination"
+ echo "Backup: $destination" >&2
+}
+switch_web() {
+ local target=$1 previous=$2
+ if compose "$target" up -d --no-deps web && healthy "$target"; then return 0; fi
+ echo 'New Web failed; restoring previous Web (DB untouched).' >&2
+ compose "$previous" up -d --no-deps web
+ healthy "$previous" || { fail 'Rollback health failed: administrator action required'; return 1; }
+ return 1
+}
+deploy() {
+ local sha=$1 previous target currentPg targetPg
+ [[ -f "$STATE/current" ]] || { fail 'Initial DB setup is manual: administrator must initialize first'; return 1; }
+ [[ $(cat "$STATE/current") != "$sha" ]] || { fail 'Already current'; return 1; }
+ previous=$(current) || return 1
+ target=$(stage "$sha") || return 1
+ [[ $(value "$previous" SCHEMA_SHA256) == "$(value "$target" SCHEMA_SHA256)" ]] || { fail 'Migration files changed: manual administrator maintenance required'; return 1; }
+ currentPg=$(value "$previous" POSTGRES_IMAGE); targetPg=$(value "$target" POSTGRES_IMAGE)
+ [[ "$currentPg" == "$targetPg" ]] || { fail 'DB image change: manual administrator maintenance required'; return 1; }
+ # CLI exits nonzero for unknown/pending migrations OR unreachable database.
+ compose "$target" run --rm --no-deps web schema-check || { fail 'DB state differs or is unknown; automatic deployment denied'; return 1; }
+ backup "$previous" || return 1
+ switch_web "$target" "$previous" || return 1
+ cat "$STATE/current" > "$STATE/previous"
+ printf '%s\n' "$sha" > "$STATE/current.tmp"; mv "$STATE/current.tmp" "$STATE/current"
+ echo "Deployed $sha"
+}
+initialize() {
+ [[ -z ${SUDO_USER:-} || ${SUDO_USER:-} != catalogdeploy ]] || { fail 'Administrator-only operation'; return 1; }
+ [[ ! -e "$STATE/current" ]] || { fail 'Already initialized; database upgrades require manual maintenance'; return 1; }
+ local target
+ target=$(stage "$1") || return 1
+ compose "$target" up -d --wait postgres || return 1
+ # First-install only: never mutate an existing populated volume via initialize.
+ local tables
+ tables=$(compose "$target" exec -T postgres psql -U catalog -d catalog_search -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
+ [[ "$tables" == 0 ]] || { fail 'Existing tables found: back up and inspect manually'; return 1; }
+ compose "$target" run --rm --no-deps web migrate || return 1
+ compose "$target" run --rm --no-deps web schema-check || return 1
+ compose "$target" up -d --no-deps web
+ healthy "$target" || { fail 'Initial health failed; data retained for diagnosis'; return 1; }
+ printf '%s\n' "$1" > "$STATE/current"
+ echo 'Initialized. Verify browser, persistence and reboot recovery before accepting production.'
+}
+approve() {
+ [[ ${SUDO_USER:-} != catalogdeploy ]] || { fail 'Administrator-only operation'; return 1; }
+ local sha=$1 input="/home/catalogdeploy/incoming/$1.tar" temp
+ [[ -f "$input" && ! -L "$input" ]] || { fail 'Upload missing'; return 1; }
+ temp=$(mktemp "$STATE/approved/.approval-XXXXXX")
+ cp -- "$input" "$temp"
+ [[ $(sha256sum "$temp"|cut -d' ' -f1) == "$sha" ]] || { rm -- "$temp"; fail 'Upload hash mismatch'; return 1; }
+ chmod 600 "$temp"; mv "$temp" "$STATE/approved/$sha.tar"
+ echo "Approved exact package: $sha"
+}
+main() {
+ [[ $EUID -eq 0 ]] || { fail 'Use administrator or the installed restricted sudo rule'; return 1; }
+ umask 077
+ [[ $# -ge 1 && $# -le 2 ]] || return 2
+ local action=$1 sha=${2:-}
+ case "$action" in status) [[ $# -eq 1 ]] || return 2;; deploy|initialize|approve) hash_ok "$sha" || return 2;; *) return 2;; esac
+ logger -t catalog-deploy "start action=$action sha=$sha caller=${SUDO_USER:-root}"
+ trap 'result=$?; logger -t catalog-deploy "finish exit=$result"; exit "$result"' EXIT
+ exec 9>"$STATE/deployment.lock"; flock -n 9 || { fail 'Another catalog operation is running'; return 1; }
+ case "$action" in
+  status) if [[ -f "$STATE/current" ]]; then echo "Current package: $(cat "$STATE/current")"; compose "$(current)" ps; else echo 'Not initialized'; fi;;
+  deploy) deploy "$sha";;
+  initialize) initialize "$sha";;
+  approve) approve "$sha";;
+ esac
+}
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

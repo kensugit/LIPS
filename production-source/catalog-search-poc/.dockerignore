@@ -1,0 +1,9 @@
+**/bin
+**/obj
+**/artifacts
+.git
+data/inbox
+**/.env
+**/*.user
+**/*.tar
+**/*.zip

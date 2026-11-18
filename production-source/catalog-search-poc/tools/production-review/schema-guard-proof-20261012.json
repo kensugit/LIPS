@@ -1,0 +1,129 @@
+{
+  "startedAt": "2026-10-12T08:48:59.811350+00:00",
+  "productionTouched": false,
+  "existingDatabaseReadOnly": true,
+  "restoreDatabase": "lips_migration_restore_20261012",
+  "fixtureDatabase": "lips_schema_guard_eeba14ba7632",
+  "status": "Passed",
+  "checks": [
+    {
+      "case": "existing_restore_db_read_only",
+      "status": "Passed"
+    },
+    {
+      "case": "valid",
+      "expected": "Passed",
+      "status": "Passed",
+      "errors": []
+    },
+    {
+      "case": "missing",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: missing relation",
+        "IntakeReusableRuleVersions: missing relation"
+      ]
+    },
+    {
+      "case": "wrong_type",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: columns/type/nullability/default/identity/order mismatch"
+      ]
+    },
+    {
+      "case": "nullable",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: columns/type/nullability/default/identity/order mismatch"
+      ]
+    },
+    {
+      "case": "wrong_default",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: columns/type/nullability/default/identity/order mismatch",
+        "IntakeReusableRuleVersions: columns/type/nullability/default/identity/order mismatch"
+      ]
+    },
+    {
+      "case": "missing_unique",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReusableRuleVersions: constraints mismatch",
+        "IntakeReusableRuleVersions: indexes mismatch"
+      ]
+    },
+    {
+      "case": "missing_check",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReusableRuleVersions: constraints mismatch"
+      ]
+    },
+    {
+      "case": "weaker_check",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReusableRuleVersions: constraints mismatch"
+      ]
+    },
+    {
+      "case": "wrong_primary_order",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReusableRuleVersions: constraints mismatch",
+        "IntakeReusableRuleVersions: indexes mismatch"
+      ]
+    },
+    {
+      "case": "extra_index",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: indexes mismatch"
+      ]
+    },
+    {
+      "case": "deferred_unique",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: constraints mismatch",
+        "IntakeReviews: indexes mismatch"
+      ]
+    },
+    {
+      "case": "unvalidated_check",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReusableRuleVersions: constraints mismatch"
+      ]
+    },
+    {
+      "case": "row_security",
+      "expected": "Failed",
+      "status": "Failed",
+      "errors": [
+        "IntakeReviews: relation properties mismatch"
+      ]
+    },
+    {
+      "case": "existing_restore_schema_unchanged",
+      "status": "Passed"
+    }
+  ],
+  "checkCount": 15,
+  "finishedAt": "2026-10-12T08:49:03.359328+00:00",
+  "fixtureRetained": true,
+  "restoreMetadataSha256": "9ebc0509e2408e27913320e8615ad62477a6c458e6b54771a8182ea3d530e2f7"
+}

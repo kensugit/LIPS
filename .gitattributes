@@ -1,1 +1,3 @@
 tools/remote-deploy/prepare-web-only-20261016.py -text
+# Preserve the exact bytes of the published production source snapshot.
+production-source/** -text

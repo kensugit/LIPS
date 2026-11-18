@@ -1,0 +1,23 @@
+{
+  "productionTouched": false,
+  "checks": [
+    {
+      "case": "normal",
+      "exit": 0,
+      "status": "Passed",
+      "readOnly": true
+    },
+    {
+      "case": "missing_schema",
+      "exit": 1,
+      "status": "Failed",
+      "readOnly": true
+    },
+    {
+      "case": "connection_unknown",
+      "exit": 2,
+      "status": "Failed",
+      "readOnly": true
+    }
+  ]
+}
