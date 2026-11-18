@@ -1,0 +1,167 @@
+diff --git a/catalog-search-poc/CODEX-HANDOFF.md b/catalog-search-poc/CODEX-HANDOFF.md
+index 155e97a..1ef2958 100644
+--- a/catalog-search-poc/CODEX-HANDOFF.md
++++ b/catalog-search-poc/CODEX-HANDOFF.md
+@@ -1,5 +1,13 @@
+ # Codex handoff
+ 
++## Current status: Fines special purchase price (2026-09-25)
++
++Candidate based on inspected production source 8f86d62e394dea395ecdd127ea8fa1611b7a989d. Adds a nullable SpecialPurchasePrice API field from explicitly versioned FINES current-source evidence, a separate search column/detail item, and a separate CSV column. Reference-retail filtering and prices remain unchanged. No schema/migration changes. Ordinary or malformed evidence returns no special price. A later ordinary inventory document supersedes current-source special price; historical evidence remains available in the database.
++
++Local checks: 145 .NET tests passed (5 unrelated DB/file tests skipped), 331 actual products imported twice with DB/evidence/stock/retail verification, full API comparison and browser/CSV decimal-preservation checks. Data package preserves two originals, applies 322 main rows and 9 extra rows, with extra precedence for 3 duplicates and Open Burgundy excluded per user confirmation.
++
++Next: register the exact package for mutual-TLS bulk receiving on Dell, transfer and verify size/hash, then use the bundled guarded manual data import and standard LIPS prepare/deploy helpers. Do not report production applied before live verification. See LIPS/docs/FINES-SPECIAL-20260924.md.
++
+ ## Current status: search/CSV refactor (2026-09-22)
+ 
+ Production CSV release e66ac013 was verified and is the baseline of this snapshot. Search request state, result rendering and download handling are now separate named functions. CSV serialization is formatted and structured without changing output (54 edge cases byte-identical). Browser tests verify pagination, sorting, invalid prices, download failure/retry, empty/error responses and cap messages. Only catalog.js and catalog-csv.js runtime files change; backend/schema/deployment infrastructure remain unchanged.
+diff --git a/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs b/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
+index 39c2399..c4006e1 100644
+--- a/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
++++ b/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
+@@ -31,4 +31,5 @@ public sealed record CatalogResult(string Sku, string ProductNameJa, string Prod
+     string SourceSheet, int SourceRow, Guid SourceDocumentId, string Country, string Region, string ProductType)
+ {
+     public string SupplierName { get; init; } = "";
++    public decimal? SpecialPurchasePrice { get; init; }
+ }
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+index bbcddea..cb04504 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+@@ -35,15 +35,16 @@ public sealed class CatalogQuery(CatalogSearchDbContext db)
+             query = query.Where(x => EF.Functions.ILike(x.SupplierProductCode, pattern, "\\") || db.ProductSearchDocuments.Any(d => d.EntityType == SearchEntityType.SupplierProduct && d.SourceRecordId == x.Id &&
+                 ((useFts && EF.Property<NpgsqlTsVector>(d, "SearchVector").Matches(EF.Functions.PlainToTsQuery("simple", term))) || EF.Functions.ILike(d.SearchText, pattern, "\\"))));
+         }
+-        return await (from p in query
++        var matches = await (from p in query
+             join supplier in db.Suppliers.AsNoTracking() on p.SupplierId equals supplier.Id
+             join e in db.SourceEvidence.AsNoTracking() on new { ProductId = p.Id, SourceId = p.CurrentSourceDocumentId }
+                 equals new { ProductId = e.SupplierProductId, SourceId = (Guid?)e.SourceDocumentId }
+             orderby p.SupplierProductCode
+-            select new CatalogResult(p.SupplierProductCode, p.SupplierProductName, p.ProductNameEn,
++            select new { supplier.Code, e.RawCellsJson, Result = new CatalogResult(p.SupplierProductCode, p.SupplierProductName, p.ProductNameEn,
+                 p.ProducerNameJa, p.ProducerNameEn, p.Vintage, p.VintageRaw, p.VolumeMl,
+                 p.CurrentPrice, p.TaxIncluded, p.CurrentInventoryStatus, p.CurrentInventoryQuantity,
+-                e.SheetName, e.RowNumber, e.SourceDocumentId, p.Country, p.Region, p.ProductType) { SupplierName = supplier.Name })
++                e.SheetName, e.RowNumber, e.SourceDocumentId, p.Country, p.Region, p.ProductType) { SupplierName = supplier.Name } })
+             .Take(filter.Limit).ToListAsync(ct);
++        return matches.Select(x => x.Result with { SpecialPurchasePrice = SpecialPurchasePrice.Read(x.Code, x.RawCellsJson) }).ToList();
+     }
+ }
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/SpecialPurchasePrice.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/SpecialPurchasePrice.cs
+new file mode 100644
+index 0000000..0599245
+--- /dev/null
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/SpecialPurchasePrice.cs
+@@ -0,0 +1,25 @@
++using System.Text.Json;
++namespace CatalogSearch.Infrastructure;
++
++/// <summary>Typed purchase-price evidence is separate from reference retail and never inferred from free text.</summary>
++public static class SpecialPurchasePrice
++{
++    public static decimal? Read(string supplierCode, string rawCellsJson)
++    {
++        if (supplierCode != "FINES") return null;
++        try
++        {
++            using var doc = JsonDocument.Parse(rawCellsJson);
++            if (!doc.RootElement.TryGetProperty("SpecialPurchasePrice", out var p) || p.ValueKind != JsonValueKind.Object ||
++                !p.TryGetProperty("Version", out var version) || !version.TryGetInt32(out var v) || v != 1 ||
++                !p.TryGetProperty("SupplierCode", out var supplier) || supplier.GetString() != supplierCode ||
++                !p.TryGetProperty("Currency", out var currency) || currency.GetString() != "JPY" ||
++                !p.TryGetProperty("TaxIncluded", out var tax) || tax.ValueKind != JsonValueKind.False ||
++                !p.TryGetProperty("Amount", out var value) || value.ValueKind != JsonValueKind.Number ||
++                !value.TryGetDecimal(out var amount) || amount <= 0) return null;
++            return amount;
++        }
++        catch (JsonException) { return null; }
++        catch (InvalidOperationException) { return null; }
++    }
++}
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+index b4e64df..328b2f0 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+@@ -15,6 +15,7 @@ const CatalogCsv = (() => {
+   ['容量(ml)', row => row.volumeMl || null],
+   ['希望小売価格', row => row.referenceRetailPrice],
+   ['税区分', row => row.taxIncluded ? '税込' : '税抜'],
++  ['特価仕入価格（税抜）', row => row.specialPurchasePrice],
+   ['在庫状態', row => states[row.inventory] || '不明'],
+   ['在庫数量(本)', row => row.quantity],
+   ['価格・規格の注意', row => row.priceNote],
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+index 9fccc29..363925f 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+@@ -20,9 +20,10 @@ function render(){
+   const vintage=el('td',r.vintageRaw||'年不明','nowrap');const volume=el('td',!r.volumeMl?'規格を確認':r.volumeMl+' ml','nowrap');
+   const price=el('td',undefined,'nowrap');price.append(el('div',money(r.referenceRetailPrice)),el('div',r.taxIncluded?'税込':'税抜','secondary'));
+   if(r.priceNote){const note=el('div',r.priceNote,'secondary');note.style.whiteSpace='normal';price.append(note)}
++  const special=el('td',undefined,'nowrap');special.append(el('div',r.specialPurchasePrice==null?'—':money(r.specialPurchasePrice)));if(r.specialPurchasePrice!=null)special.append(el('div','税抜・取込資料時点','secondary'));
+   const stock=el('td');stock.append(el('span',states[r.inventory]||'不明','stock '+(r.inventory===2?'low':r.inventory===0?'unknown':'')));if(r.quantity!=null)stock.append(el('div',r.quantity+'本','secondary'));
+   const source=el('td');const b=el('button',r.sourceSheet+'!'+r.sourceRow);b.addEventListener('click',()=>detail(r,b));source.append(b);
+-  tr.append(el('td',r.supplierName||'記載なし'),name,producer,country,region,vintage,volume,price,stock,source);body.append(tr);
++  tr.append(el('td',r.supplierName||'記載なし'),name,producer,country,region,vintage,volume,price,special,stock,source);body.append(tr);
+  }
+  $('page').textContent=data.length?`${page*size+1}–${Math.min((page+1)*size,data.length)} / ${data.length}件`:'0件';$('prev').disabled=page===0;$('next').disabled=(page+1)*size>=data.length;
+ }
+@@ -110,7 +111,7 @@ function downloadResults() {
+  }
+ }
+ 
+-async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['希望小売の原表記',row.PriceRaw],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
++async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['希望小売の原表記',row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+ $('download-csv').addEventListener('click', downloadResults);
+ $('search').addEventListener('submit',e=>{e.preventDefault();search()});$('search').addEventListener('reset',()=>setTimeout(search,0));$('example').addEventListener('click',()=>{$('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';$('country').value='フランス';$('region').value='ブルゴーニュ';$('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
+ (async()=>{try{const options=await json('/api/options');$('total').textContent=`登録商品 ${options.total.toLocaleString()}件`;for(const [id,key]of [['country','countries'],['region','regions'],['type','types'],['volumeMl','volumes'],['vintage','vintages']])for(const value of options[key])if(value){const o=el('option',id==='volumeMl'?value+' ml':value);o.value=value;$(id).append(o)}await search()}catch(e){$('total').textContent='接続できません';error(e.message)}})();
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+index e54e352..514b8c4 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/index.html
+@@ -4,6 +4,6 @@
+ <main><nav class="workspace-nav"><a href="/">商品検索</a><a href="/workspace.html">取込・横断検索・商品確認</a></nav><div class="intro"><div><p class="eyebrow">SUPPLIER CATALOG</p><h1>商品カタログ検索</h1><p>価格・在庫で絞り込み、元の在庫表まで確認できます。</p></div><p id="total" class="total">商品データを確認中</p></div>
+ <section aria-labelledby="filter-title"><h2 id="filter-title">検索条件</h2><form id="search"><div class="filters"><label class="wide">自由文検索・商品名・生産者<input name="text" id="text" placeholder="例：容量1500mlの３万円以下のシャンパーニュ" maxlength="200"></label><label>国<select name="country" id="country"><option value="">すべて</option></select></label><label>産地<select name="region" id="region"><option value="">すべて</option></select></label><label>タイプ<select name="type" id="type"><option value="">すべて</option></select></label><label>容量<select name="volumeMl" id="volumeMl"><option value="">すべて</option></select></label><label>ヴィンテージ<select name="vintage" id="vintage"><option value="">すべて</option></select></label><label>希望小売価格の下限（税抜）<div class="price"><input name="priceMin" id="priceMin" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label><label>希望小売価格の上限（税抜）<div class="price"><input name="priceMax" id="priceMax" type="number" min="0" step="1" placeholder="指定なし"><span>円</span></div></label></div>
+ <div class="actions"><label class="check"><input type="checkbox" id="available" name="available">在庫あり・少量のみ</label><div><button type="button" id="example">確認用の条件を入れる</button><button type="reset" id="reset">条件をクリア</button><button class="primary" type="submit">検索する</button></div></div></form><p class="hint">価格の下限または上限を指定すると、金額未設定・税込の商品は対象外です。空白で区切ったキーワードをすべて含む商品を検索します（英字の大小は区別しません）。自由文で「2500円から4000円」「1万5千円以下」「予算3万円」「在庫のある」「750mlのみ」などを指定できます。価格の未満・超、国・産地、赤・白・泡にも対応しています。その他の語はキーワード検索します。詳細条件もすべて満たす商品が対象です。</p></section>
+-<div id="error" role="alert" hidden></div><section class="results" aria-labelledby="results-title"><div class="result-head"><h2 id="results-title">検索結果 <span id="count" aria-live="polite"></span></h2><div><span>希望小売価格 / 在庫表の記載時点</span> <button type="button" id="download-csv" disabled>検索結果をCSVダウンロード</button></div></div><p id="csv-status" class="hint" role="status">検索結果全体を現在の並び順でCSV出力します（最大2,000件）。</p><p id="interpreted" class="hint" role="status"></p><p id="sort-status" class="hint" role="status">列タイトルで昇順・降順を切り替えられます。</p><p id="empty" hidden>該当する商品はありません。条件を減らして再検索してください。</p><div class="table-wrap"><table id="search-results"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="supplier">取引先<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="product">商品<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="producer">生産者<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="country">国<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="region">産地<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="vintage">年<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="volume">容量<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="price">希望小売価格<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="stock">在庫<span aria-hidden="true"> ↕</span></button></th><th scope="col">取込元</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pager"><button id="prev">前へ</button><span id="page"></span><button id="next">次へ</button></div></section>
++<div id="error" role="alert" hidden></div><section class="results" aria-labelledby="results-title"><div class="result-head"><h2 id="results-title">検索結果 <span id="count" aria-live="polite"></span></h2><div><span>希望小売価格 / 在庫表の記載時点</span> <button type="button" id="download-csv" disabled>検索結果をCSVダウンロード</button></div></div><p id="csv-status" class="hint" role="status">検索結果全体を現在の並び順でCSV出力します（最大2,000件）。</p><p id="interpreted" class="hint" role="status"></p><p id="sort-status" class="hint" role="status">列タイトルで昇順・降順を切り替えられます。</p><p id="empty" hidden>該当する商品はありません。条件を減らして再検索してください。</p><div class="table-wrap"><table id="search-results"><thead><tr><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="supplier">取引先<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="product">商品<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="producer">生産者<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="country">国<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="region">産地<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="vintage">年<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="volume">容量<span aria-hidden="true"> ↕</span></button></th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="price">希望小売価格<span aria-hidden="true"> ↕</span></button></th><th scope="col">特価仕入価格</th><th scope="col" aria-sort="none"><button type="button" class="sort-heading" data-sort="stock">在庫<span aria-hidden="true"> ↕</span></button></th><th scope="col">取込元</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pager"><button id="prev">前へ</button><span id="page"></span><button id="next">次へ</button></div></section>
+ <footer>仕入先在庫リスト · 資料の日付は取込元で確認 · 独立した確認用データ · iWSET・酒道楽への書き戻しなし</footer></main>
+ <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title">取込元の確認</h2><button id="close">閉じる</button></div><div id="detail-body"></div></dialog><div id="busy" hidden role="status" aria-live="polite"><div>検索しています…</div></div></body></html>
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/SpecialPurchasePriceTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/SpecialPurchasePriceTests.cs
+new file mode 100644
+index 0000000..12fafe7
+--- /dev/null
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/SpecialPurchasePriceTests.cs
+@@ -0,0 +1,29 @@
++using CatalogSearch.Infrastructure;
++using Xunit;
++namespace CatalogSearch.Domain.Tests;
++
++public class SpecialPurchasePriceTests
++{
++    private const string Evidence = """{"SpecialPurchasePrice":{"Version":1,"SupplierCode":"FINES","Currency":"JPY","TaxIncluded":false,"Amount":20992.5}}""";
++    [Fact]
++    public void PurchaseIsTypedAndPreservesFractionalYen()
++    {
++        Assert.Equal(20992.5m, SpecialPurchasePrice.Read("FINES", Evidence));
++        Assert.Null(SpecialPurchasePrice.Read("OTHER", Evidence));
++        Assert.Null(SpecialPurchasePrice.Read("FINES", """{"特価":5000}"""));
++        Assert.Null(SpecialPurchasePrice.Read("FINES", "{}"));
++    }
++    [Theory]
++    [InlineData("not-json")]
++    [InlineData("{\"SpecialPurchasePrice\":null}")]
++    [InlineData("{\"SpecialPurchasePrice\":{\"Version\":\"1\"}}")]
++    public void MalformedEvidenceDoesNotBreakSearch(string raw) => Assert.Null(SpecialPurchasePrice.Read("FINES", raw));
++    [Fact]
++    public void InvalidAmountsVersionsAndTaxDoNotBecomePrices()
++    {
++        Assert.Null(SpecialPurchasePrice.Read("FINES", Evidence.Replace("20992.5", "-1")));
++        Assert.Null(SpecialPurchasePrice.Read("FINES", Evidence.Replace("false", "true")));
++        Assert.Null(SpecialPurchasePrice.Read("FINES", Evidence.Replace("JPY", "USD")));
++        Assert.Null(SpecialPurchasePrice.Read("FINES", Evidence.Replace("\"Version\":1", "\"Version\":2")));
++    }
++}

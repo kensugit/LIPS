@@ -1,0 +1,229 @@
+diff --git a/catalog-search-poc/CODEX-HANDOFF.md b/catalog-search-poc/CODEX-HANDOFF.md
+index 1ef2958..254c7b3 100644
+--- a/catalog-search-poc/CODEX-HANDOFF.md
++++ b/catalog-search-poc/CODEX-HANDOFF.md
+@@ -1,5 +1,16 @@
+ # Codex handoff
+ 
++## Current status (2026-09-29, vintage notation candidate)
++
++Year-only brackets are normalized for search/options/display/CSV: 2021, [2021], (2021) -> 2021. NV/N.V/N.V. (including case/fullwidth variations) -> NV. MV, blends, age statements, 0, dash and unknown remain distinct. Supplier VintageRaw, original files and evidence are preserved. New VintageLabel is display-only. Matching raw variants are selected in SQL before the result limit. No schema or data migration.
++
++Verified against inspected production source f226f0a98d74253af4100e35d0f4d43ae898cb9f using an isolated candidate: 166 unit tests passed (6 environment tests skipped); all 22 vintage tests including PostgreSQL integration passed; Edge API/options/display/sort/CSV/original-evidence checks passed. This is a local implementation, not a production deployment.
++
++## Next work (vintage notation)
++
++See LIPS/docs/VINTAGE-NORMALIZATION.md. Production release requires an explicit instruction for this change, a fresh inspect and standard transfer/deployment gates. Do not deploy the entire development tree containing other work.
++
++
+ ## Current status: Fines special purchase price (2026-09-25)
+ 
+ Candidate based on inspected production source 8f86d62e394dea395ecdd127ea8fa1611b7a989d. Adds a nullable SpecialPurchasePrice API field from explicitly versioned FINES current-source evidence, a separate search column/detail item, and a separate CSV column. Reference-retail filtering and prices remain unchanged. No schema/migration changes. Ordinary or malformed evidence returns no special price. A later ordinary inventory document supersedes current-source special price; historical evidence remains available in the database.
+diff --git a/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs b/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
+index c4006e1..a5f14db 100644
+--- a/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
++++ b/catalog-search-poc/src/CatalogSearch.Application/ImportService.cs
+@@ -30,6 +30,7 @@ public sealed record CatalogResult(string Sku, string ProductNameJa, string Prod
+     decimal? ReferenceRetailPrice, bool TaxIncluded, InventoryStatus Inventory, int? Quantity,
+     string SourceSheet, int SourceRow, Guid SourceDocumentId, string Country, string Region, string ProductType)
+ {
++    public string VintageLabel => VintageNotation.Normalize(VintageRaw);
+     public string SupplierName { get; init; } = "";
+     public decimal? SpecialPurchasePrice { get; init; }
+ }
+diff --git a/catalog-search-poc/src/CatalogSearch.Application/VintageNotation.cs b/catalog-search-poc/src/CatalogSearch.Application/VintageNotation.cs
+new file mode 100644
+index 0000000..4e49316
+--- /dev/null
++++ b/catalog-search-poc/src/CatalogSearch.Application/VintageNotation.cs
+@@ -0,0 +1,32 @@
++using System.Text;
++using System.Text.RegularExpressions;
++
++namespace CatalogSearch.Application;
++
++/// <summary>Search/display notation only. Original supplier evidence is never changed.</summary>
++public static class VintageNotation
++{
++    public static string Normalize(string? raw)
++    {
++        if (string.IsNullOrWhiteSpace(raw)) return "";
++        var value = raw.Normalize(NormalizationForm.FormKC).Trim();
++        var unwrapped = value;
++        while (unwrapped.Length >= 2 && ((unwrapped[0] == '(' && unwrapped[^1] == ')') ||
++               (unwrapped[0] == '[' && unwrapped[^1] == ']')))
++            unwrapped = unwrapped[1..^1].Trim();
++        if (Regex.IsMatch(unwrapped, @"^[0-9]{4}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
++            return unwrapped;
++        if (Regex.IsMatch(unwrapped, @"^N\s*\.?\s*V\s*\.?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
++            return "NV";
++        return raw; // MV, age statements, blends and unknown values are not inferred.
++    }
++
++    public static string[] Options(IEnumerable<string> rawValues) => rawValues.Select(Normalize)
++        .Where(x => x.Length > 0).Distinct(StringComparer.Ordinal).OrderByDescending(x => x, StringComparer.Ordinal).ToArray();
++
++    public static string[] MatchingRawValues(IEnumerable<string> rawValues, string requested)
++    {
++        var normalized = Normalize(requested);
++        return rawValues.Where(x => Normalize(x) == normalized).Distinct(StringComparer.Ordinal).ToArray();
++    }
++}
+diff --git a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+index cb04504..3f58ed7 100644
+--- a/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
++++ b/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs
+@@ -20,7 +20,12 @@ public sealed class CatalogQuery(CatalogSearchDbContext db)
+         if (natural.Sparkling) query = query.Where(x => x.ProductType.Contains("泡") || x.ProductType == "スパークリング");
+         if (natural.Champagne) query = query.Where(x => (x.Region == "シャンパーニュ" || x.Region == "シャンパーニュ地方" || x.Region == "Champagne") && (x.ProductType.Contains("泡") || x.ProductType == "スパークリング"));
+         if (filter.VolumeMl is not null) query = query.Where(x => x.VolumeMl == filter.VolumeMl);
+-        if (!string.IsNullOrWhiteSpace(filter.VintageRaw)) query = query.Where(x => x.VintageRaw == filter.VintageRaw);
++        if (!string.IsNullOrWhiteSpace(filter.VintageRaw))
++        {
++            var rawVintages = await db.SupplierProducts.AsNoTracking().Select(x => x.VintageRaw).Distinct().ToListAsync(ct);
++            var matchingVintages = VintageNotation.MatchingRawValues(rawVintages, filter.VintageRaw);
++            query = query.Where(x => matchingVintages.Contains(x.VintageRaw));
++        }
+         if (filter.PriceMin is not null) query = query.Where(x => !x.TaxIncluded && x.CurrentPrice != null && x.CurrentPrice >= filter.PriceMin);
+         // The milestone asks for tax-exclusive reference retail prices; do not mix tax bases.
+         if (filter.PriceMax is not null) query = query.Where(x => !x.TaxIncluded && x.CurrentPrice != null && x.CurrentPrice <= filter.PriceMax);
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/Program.cs b/catalog-search-poc/src/CatalogSearch.Web/Program.cs
+index cd34fb9..95993d0 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/Program.cs
++++ b/catalog-search-poc/src/CatalogSearch.Web/Program.cs
+@@ -49,7 +49,7 @@ app.MapGet("/api/options", async (CatalogSearchDbContext db, CancellationToken c
+     countries = await db.SupplierProducts.Select(x => x.Country).Distinct().OrderBy(x => x).ToListAsync(ct),
+     regions = await db.SupplierProducts.Select(x => x.Region).Distinct().OrderBy(x => x).ToListAsync(ct),
+     volumes = await db.SupplierProducts.Select(x => x.VolumeMl).Distinct().OrderBy(x => x).ToListAsync(ct),
+-    vintages = await db.SupplierProducts.Select(x => x.VintageRaw).Distinct().OrderByDescending(x => x).ToListAsync(ct),
++    vintages = VintageNotation.Options(await db.SupplierProducts.Select(x => x.VintageRaw).Distinct().ToListAsync(ct)),
+     types = await db.SupplierProducts.Select(x => x.ProductType).Distinct().OrderBy(x => x).ToListAsync(ct)
+ }));
+ app.MapGet("/api/search", async (HttpRequest request, CatalogSearchDbContext db, CancellationToken ct) =>
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+index 328b2f0..9d3e942 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+@@ -11,7 +11,7 @@ const CatalogCsv = (() => {
+   ['国', row => row.country],
+   ['産地', row => row.region],
+   ['タイプ', row => row.productType],
+-  ['年号', row => row.vintageRaw],
++  ['年号', row => row.vintageLabel ?? row.vintageRaw],
+   ['容量(ml)', row => row.volumeMl || null],
+   ['希望小売価格', row => row.referenceRetailPrice],
+   ['税区分', row => row.taxIncluded ? '税込' : '税抜'],
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-sort.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-sort.js
+index dabbf07..b80232f 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-sort.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-sort.js
+@@ -2,7 +2,7 @@
+ const CatalogSort=(()=>{
+  const collator=new Intl.Collator('ja',{numeric:true,sensitivity:'base'});
+  const stockRank={3:0,2:1,1:2,4:3};
+- const values={supplier:r=>r.supplierName,product:r=>r.productNameJa||r.productNameEn,producer:r=>r.producerNameJa||r.producerNameEn,country:r=>r.country,region:r=>r.region,vintage:r=>r.vintageRaw,volume:r=>r.volumeMl,price:r=>r.referenceRetailPrice,stock:r=>stockRank[r.inventory]};
++ const values={supplier:r=>r.supplierName,product:r=>r.productNameJa||r.productNameEn,producer:r=>r.producerNameJa||r.producerNameEn,country:r=>r.country,region:r=>r.region,vintage:r=>r.vintageLabel??r.vintageRaw,volume:r=>r.volumeMl,price:r=>r.referenceRetailPrice,stock:r=>stockRank[r.inventory]};
+  const missing=v=>v==null||v==='';
+  function compareValue(a,b,direction){if(missing(a)||missing(b))return missing(a)===missing(b)?0:missing(a)?1:-1;return (typeof a==='number'&&typeof b==='number'?a-b:collator.compare(String(a),String(b)))*direction}
+  function sort(rows,key,direction){if(!values[key])return [...rows];return [...rows].sort((a,b)=>compareValue(values[key](a),values[key](b),direction)||(key==='stock'?compareValue(a.quantity,b.quantity,direction):0)||collator.compare(a.sku,b.sku)||collator.compare(a.sourceDocumentId||'',b.sourceDocumentId||''))}
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+index 363925f..995b8d8 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+@@ -17,7 +17,7 @@ function render(){
+   const name=el('td');name.append(el('div',r.productNameJa,'name'),el('div',r.productNameEn,'secondary'),el('div','SKU '+r.sku,'secondary'));
+   const producer=el('td');producer.append(el('div',r.producerNameJa||r.producerNameEn||'記載なし'),el('div',r.producerNameJa?r.producerNameEn:'','secondary'));
+   const country=el('td',r.country||'記載なし');const region=el('td');region.append(el('div',r.region||'記載なし'),el('div',r.productType,'secondary'));
+-  const vintage=el('td',r.vintageRaw||'年不明','nowrap');const volume=el('td',!r.volumeMl?'規格を確認':r.volumeMl+' ml','nowrap');
++  const vintage=el('td',(r.vintageLabel??r.vintageRaw)||'年不明','nowrap');const volume=el('td',!r.volumeMl?'規格を確認':r.volumeMl+' ml','nowrap');
+   const price=el('td',undefined,'nowrap');price.append(el('div',money(r.referenceRetailPrice)),el('div',r.taxIncluded?'税込':'税抜','secondary'));
+   if(r.priceNote){const note=el('div',r.priceNote,'secondary');note.style.whiteSpace='normal';price.append(note)}
+   const special=el('td',undefined,'nowrap');special.append(el('div',r.specialPurchasePrice==null?'—':money(r.specialPurchasePrice)));if(r.specialPurchasePrice!=null)special.append(el('div','税抜・取込資料時点','secondary'));
+@@ -111,7 +111,7 @@ function downloadResults() {
+  }
+ }
+ 
+-async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['希望小売の原表記',row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
++async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['年号の原表記',row.VintageRaw||'記載なし'],['希望小売の原表記',row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+ $('download-csv').addEventListener('click', downloadResults);
+ $('search').addEventListener('submit',e=>{e.preventDefault();search()});$('search').addEventListener('reset',()=>setTimeout(search,0));$('example').addEventListener('click',()=>{$('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';$('country').value='フランス';$('region').value='ブルゴーニュ';$('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
+ (async()=>{try{const options=await json('/api/options');$('total').textContent=`登録商品 ${options.total.toLocaleString()}件`;for(const [id,key]of [['country','countries'],['region','regions'],['type','types'],['volumeMl','volumes'],['vintage','vintages']])for(const value of options[key])if(value){const o=el('option',id==='volumeMl'?value+' ml':value);o.value=value;$(id).append(o)}await search()}catch(e){$('total').textContent='接続できません';error(e.message)}})();
+diff --git a/catalog-search-poc/tests/CatalogSearch.Domain.Tests/VintageNotationTests.cs b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/VintageNotationTests.cs
+new file mode 100644
+index 0000000..1b5a385
+--- /dev/null
++++ b/catalog-search-poc/tests/CatalogSearch.Domain.Tests/VintageNotationTests.cs
+@@ -0,0 +1,73 @@
++using System.Text;
++using CatalogSearch.Application;
++using CatalogSearch.Infrastructure;
++using Microsoft.EntityFrameworkCore;
++using Xunit;
++namespace CatalogSearch.Domain.Tests;
++public class VintageNotationTests
++{
++    [Theory]
++    [InlineData("2021", "2021")]
++    [InlineData("[2021]", "2021")]
++    [InlineData("(2021)", "2021")]
++    [InlineData(" （２０２１） ", "2021")]
++    [InlineData("[ (2021) ]", "2021")]
++    [InlineData("NV", "NV")]
++    [InlineData("N.V", "NV")]
++    [InlineData("N.V.", "NV")]
++    [InlineData(" n.v. ", "NV")]
++    [InlineData("（Ｎ．Ｖ．）", "NV")]
++    [InlineData("MV", "MV")]
++    [InlineData("[1982-19]", "[1982-19]")]
++    [InlineData("202", "202")]
++    [InlineData("0", "0")]
++    [InlineData("-", "-")]
++    [InlineData("30ANS", "30ANS")]
++    [InlineData("95+96+00", "95+96+00")]
++    [InlineData("(2021]", "(2021]")]
++    [InlineData("", "")]
++    [InlineData(null, "")]
++    public void NormalizesOnlyKnownNotations(string? raw, string expected)
++        => Assert.Equal(expected, VintageNotation.Normalize(raw));
++
++    [Fact] public void OptionsAndMatchingUseTheSameEquivalence()
++    {
++        string[] raw = ["2021", "[2021]", "(2021)", "N.V.", "NV", "N.V", "2020", "MV", "", "-"];
++        var options = VintageNotation.Options(raw);
++        Assert.Equal(1, options.Count(x => x == "2021"));
++        Assert.Equal(1, options.Count(x => x == "NV"));
++        Assert.DoesNotContain("", options);
++        Assert.Equal(new[] { "2021", "[2021]", "(2021)" }, VintageNotation.MatchingRawValues(raw, "(2021)"));
++        Assert.Equal(new[] { "N.V.", "NV", "N.V" }, VintageNotation.MatchingRawValues(raw, "NV"));
++    }
++
++    [PostgresFact] public async Task EquivalentYearsAndNvMatchBeforeLimitAndKeepEvidence()
++    {
++        var options = new DbContextOptionsBuilder<CatalogSearchDbContext>().UseNpgsql(Environment.GetEnvironmentVariable("CATALOG_TEST_CONNECTION")).Options;
++        await using var db = new CatalogSearchDbContext(options);
++        await db.Database.MigrateAsync();
++        var tag = "VINTAGE" + Guid.NewGuid().ToString("N").ToUpperInvariant();
++        string[] raw = ["2021", "[2021]", "(2021)", "NV", "N.V", "N.V.", "2020", "MV", "", "-"];
++        var csv = "SKU,ProductNameJa,VolumeMl,Price,Inventory,Vintage\n" + string.Join("\n", raw.Select((v, i) => $"{tag}{i},{tag},750,3000,12,{v}"));
++        await new ContentImportService(db).ImportAsync("vintages.csv", Encoding.UTF8.GetBytes(csv), DateTimeOffset.UtcNow, tag, tag, default);
++        var query = new CatalogQuery(db);
++        foreach (var requested in new[] { "2021", "[2021]", "(2021)" })
++        {
++            var rows = await query.SearchAsync(new(Text: tag, VintageRaw: requested));
++            Assert.Equal(3, rows.Count);
++            Assert.All(rows, r => Assert.Equal("2021", r.VintageLabel));
++            Assert.Contains(rows, r => r.VintageRaw == "[2021]");
++        }
++        foreach (var requested in new[] { "NV", "N.V.", "N.V" })
++        {
++            var rows = await query.SearchAsync(new(Text: tag, VintageRaw: requested));
++            Assert.Equal(3, rows.Count);
++            Assert.All(rows, r => Assert.Equal("NV", r.VintageLabel));
++        }
++        Assert.Single(await query.SearchAsync(new(Text: tag, VintageRaw: "2021", Limit: 1)));
++        Assert.Empty(await query.SearchAsync(new(Text: tag, VintageRaw: "2021", PriceMax: 2000)));
++        Assert.Single(await query.SearchAsync(new(Text: tag, VintageRaw: "MV")));
++        Assert.Empty(await query.SearchAsync(new(Text: tag, VintageRaw: "2099")));
++        Assert.Equal(10, await db.SupplierProducts.CountAsync(x => x.SupplierProductName == tag));
++    }
++}

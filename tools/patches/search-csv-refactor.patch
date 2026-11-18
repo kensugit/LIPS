@@ -1,0 +1,168 @@
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+index 9895834..b4e64df 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog-csv.js
+@@ -1,14 +1,45 @@
+-// Export the displayed result set before pagination, preserving the current sort.
+-const CatalogCsv=(()=>{
+- const states=['不明','在庫あり','少量','在庫なし','入荷待ち'];
+- const columns=[['取引先',r=>r.supplierName],['仕入先SKU',r=>r.sku],['商品名',r=>r.productNameJa],['商品名（欧文）',r=>r.productNameEn],['生産者',r=>r.producerNameJa],['生産者（欧文）',r=>r.producerNameEn],['国',r=>r.country],['産地',r=>r.region],['タイプ',r=>r.productType],['年号',r=>r.vintageRaw],['容量(ml)',r=>r.volumeMl||null],['希望小売価格',r=>r.referenceRetailPrice],['税区分',r=>r.taxIncluded?'税込':'税抜'],['在庫状態',r=>states[r.inventory]||'不明'],['在庫数量(本)',r=>r.quantity],['価格・規格の注意',r=>r.priceNote],['取込元シート',r=>r.sourceSheet],['取込元行',r=>r.sourceRow],['取込元ID',r=>r.sourceDocumentId]];
+- function cell(value){
+-  let text=value==null?'':String(value);
+-  // Quote CSV delimiters and neutralize spreadsheet formulas in supplier text.
+-  if(typeof value==='string'&&(/^[\s\uFEFF]*[=+\-@]/u.test(text)||/^[\t\r\n]/.test(text)))text="'"+text;
+-  return '"'+text.replace(/"/g,'""')+'"';
++// Pure CSV serialization: callers supply the complete, already sorted result set.
++const CatalogCsv = (() => {
++ const states = ['不明', '在庫あり', '少量', '在庫なし', '入荷待ち'];
++ const columns = [
++  ['取引先', row => row.supplierName],
++  ['仕入先SKU', row => row.sku],
++  ['商品名', row => row.productNameJa],
++  ['商品名（欧文）', row => row.productNameEn],
++  ['生産者', row => row.producerNameJa],
++  ['生産者（欧文）', row => row.producerNameEn],
++  ['国', row => row.country],
++  ['産地', row => row.region],
++  ['タイプ', row => row.productType],
++  ['年号', row => row.vintageRaw],
++  ['容量(ml)', row => row.volumeMl || null],
++  ['希望小売価格', row => row.referenceRetailPrice],
++  ['税区分', row => row.taxIncluded ? '税込' : '税抜'],
++  ['在庫状態', row => states[row.inventory] || '不明'],
++  ['在庫数量(本)', row => row.quantity],
++  ['価格・規格の注意', row => row.priceNote],
++  ['取込元シート', row => row.sourceSheet],
++  ['取込元行', row => row.sourceRow],
++  ['取込元ID', row => row.sourceDocumentId]
++ ];
++
++ function cell(value) {
++  let text = value == null ? '' : String(value);
++  // Neutralize formulas in supplier text before escaping CSV quotes.
++  if (typeof value === 'string' && (/^[\s\uFEFF]*[=+\-@]/u.test(text) || /^[\t\r\n]/.test(text))) {
++   text = "'" + text;
++  }
++  return '"' + text.replace(/"/g, '""') + '"';
+  }
+- function serialize(rows){return '\uFEFF'+[columns.map(([label])=>cell(label)).join(','),...rows.map(row=>columns.map(([,read])=>cell(read(row))).join(','))].join('\r\n')+'\r\n'}
++
++ const record = values => values.map(cell).join(',');
++ const header = record(columns.map(([label]) => label));
++
++ function serialize(rows) {
++  const records = rows.map(row => record(columns.map(([, read]) => read(row))));
++  return '\uFEFF' + [header, ...records].join('\r\n') + '\r\n';
++ }
++
+  return {serialize};
+ })();
+-if(typeof module!=='undefined')module.exports=CatalogCsv;
++if (typeof module !== 'undefined') module.exports = CatalogCsv;
+diff --git a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+index e303314..9fccc29 100644
+--- a/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
++++ b/catalog-search-poc/src/CatalogSearch.Web/wwwroot/catalog.js
+@@ -11,7 +11,7 @@ document.querySelectorAll('[data-sort]').forEach(button=>button.addEventListener
+  $('sort-status').textContent=button.childNodes[0].textContent+'：'+(sortDirection===1?'昇順':'降順')+'（検索結果全体。未設定は末尾）'+(sortKey==='stock'?'。昇順は在庫なし→少量→在庫あり→入荷待ち、同じ状態では本数順。':'');render();
+ }));
+ function render(){
+- $('download-csv').disabled=searchPending||data.length===0;const body=$('rows');body.replaceChildren();$('empty').hidden=data.length!==0;
++ updateDownloadButton();const body=$('rows');body.replaceChildren();$('empty').hidden=data.length!==0;
+  for(const r of data.slice(page*size,(page+1)*size)){
+   const tr=el('tr');tr.dataset.sku=r.sku;
+   const name=el('td');name.append(el('div',r.productNameJa,'name'),el('div',r.productNameEn,'secondary'),el('div','SKU '+r.sku,'secondary'));
+@@ -26,8 +26,91 @@ function render(){
+  }
+  $('page').textContent=data.length?`${page*size+1}–${Math.min((page+1)*size,data.length)} / ${data.length}件`:'0件';$('prev').disabled=page===0;$('next').disabled=(page+1)*size>=data.length;
+ }
+-async function search(){searchPending=true;$('download-csv').disabled=true;$('csv-status').textContent='検索結果全体を現在の並び順でCSV出力します（最大2,000件）。';error('');$('interpreted').textContent='';if($('priceMin').value!==''&&$('priceMax').value!==''&&Number($('priceMin').value)>Number($('priceMax').value)){error('価格の下限は上限以下にしてください。');searchPending=false;return;}$('busy').hidden=false;$('search').inert=true;try{const query=new URLSearchParams(new FormData($('search')));query.set('available',$('available').checked?'true':'false');const result=await json('/api/search?'+query);data=result.rows;$('csv-status').textContent=result.capped?'検索上限に達したため、CSVも先頭2,000件のみです。条件を絞ると残りの商品も検索できます。':'検索結果 '+data.length.toLocaleString()+'件を現在の並び順でCSV出力します。';$('interpreted').textContent=result.conditions?.length?'検索条件：'+result.conditions.join(' ／ '):'検索条件：すべて';applySort();page=0;$('count').textContent=`${data.length.toLocaleString()}件${result.capped?'（先頭2,000件）':''}`;render()}catch(e){error(e.message);data=[];page=0;$('count').textContent='取得できません';render();$('empty').hidden=true}finally{searchPending=false;$('download-csv').disabled=data.length===0;$('busy').hidden=true;$('search').inert=false}}
++function updateDownloadButton() {
++ $('download-csv').disabled = searchPending || data.length === 0;
++}
++
++function setSearchPending(pending) {
++ searchPending = pending;
++ $('busy').hidden = !pending;
++ $('search').inert = pending;
++ updateDownloadButton();
++}
++
++function searchQuery() {
++ const query = new URLSearchParams(new FormData($('search')));
++ query.set('available', $('available').checked ? 'true' : 'false');
++ return query;
++}
++
++function validPriceRange() {
++ const min = $('priceMin').value;
++ const max = $('priceMax').value;
++ return min === '' || max === '' || Number(min) <= Number(max);
++}
++
++function showSearchResults(result) {
++ data = result.rows;
++ $('csv-status').textContent = result.capped
++  ? '検索上限に達したため、CSVも先頭2,000件のみです。条件を絞ると残りの商品も検索できます。'
++  : '検索結果 ' + data.length.toLocaleString() + '件を現在の並び順でCSV出力します。';
++ $('interpreted').textContent = result.conditions?.length
++  ? '検索条件：' + result.conditions.join(' ／ ') : '検索条件：すべて';
++ applySort();
++ page = 0;
++ $('count').textContent = `${data.length.toLocaleString()}件${result.capped ? '（先頭2,000件）' : ''}`;
++ render();
++}
++
++function showSearchFailure(message) {
++ error(message);
++ data = [];
++ page = 0;
++ $('count').textContent = '取得できません';
++ render();
++ $('empty').hidden = true;
++}
++
++async function search() {
++ error('');
++ // A rejected input does not change the last successful results or their export.
++ if (!validPriceRange()) {
++  error('価格の下限は上限以下にしてください。');
++  return;
++ }
++ $('interpreted').textContent = '';
++ $('csv-status').textContent = '検索結果全体を現在の並び順でCSV出力します（最大2,000件）。';
++ setSearchPending(true);
++ try {
++  showSearchResults(await json('/api/search?' + searchQuery()));
++ } catch (e) {
++  showSearchFailure(e.message);
++ } finally {
++  setSearchPending(false);
++ }
++}
++
++function downloadResults() {
++ if (searchPending || data.length === 0) return;
++ error('');
++ let url;
++ const link = el('a');
++ try {
++  const blob = new Blob([CatalogCsv.serialize(data)], {type: 'text/csv;charset=utf-8'});
++  url = URL.createObjectURL(blob);
++  link.href = url;
++  link.download = '検索結果_' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv';
++  document.body.append(link);
++  link.click();
++ } catch {
++  error('CSVのダウンロードに失敗しました。もう一度お試しください。');
++ } finally {
++  link.remove();
++  if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
++ }
++}
++
+ async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',r.sku],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['希望小売の原表記',row.PriceRaw],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',row.OriginalSupplierProductCode||row.SupplierProductCode],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',row.Description||'記載なし']])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl,details);$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+-$('download-csv').addEventListener('click',()=>{if(searchPending||!data.length)return;const blob=new Blob([CatalogCsv.serialize(data)],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=el('a');a.href=url;a.download='検索結果_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)});
++$('download-csv').addEventListener('click', downloadResults);
+ $('search').addEventListener('submit',e=>{e.preventDefault();search()});$('search').addEventListener('reset',()=>setTimeout(search,0));$('example').addEventListener('click',()=>{$('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';$('country').value='フランス';$('region').value='ブルゴーニュ';$('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
+ (async()=>{try{const options=await json('/api/options');$('total').textContent=`登録商品 ${options.total.toLocaleString()}件`;for(const [id,key]of [['country','countries'],['region','regions'],['type','types'],['volumeMl','volumes'],['vintage','vintages']])for(const value of options[key])if(value){const o=el('option',id==='volumeMl'?value+' ml':value);o.value=value;$(id).append(o)}await search()}catch(e){$('total').textContent='接続できません';error(e.message)}})();

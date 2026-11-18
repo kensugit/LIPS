@@ -1,0 +1,56 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'C:/Users/kensu/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+// Use the isolated database populated by VintageNotationTests, never production.
+(async () => {
+  const browser = await chromium.launch({channel:'msedge', headless:true});
+  const output = 'artifacts/vintage-normalization-20260929';
+  try {
+    const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    const base=process.env.CATALOG_URL || 'http://127.0.0.1:55470';
+    const get=async path=>{const r=await page.request.get(base+path);assert.equal(r.status(),200);return r.json()};
+    const options=await get('/api/options?vintageNotation=canonical');
+    assert.equal(options.vintages.filter(x=>x==='2021').length,1);
+    assert.equal(options.vintages.filter(x=>x==='NV').length,1);
+    for(const x of ['[2021]','(2021)','N.V','N.V.'])assert(!options.vintages.includes(x));
+    const all=await get('/api/search');
+    const tag=all.rows.find(r=>r.sku.startsWith('VINTAGE')).productNameJa;
+    const years=await get('/api/search?'+new URLSearchParams({text:tag,vintage:'2021'}));
+    assert.equal(years.rows.length,3);
+    assert.deepEqual(new Set(years.rows.map(x=>x.vintageRaw)),new Set(['2021','[2021]','(2021)']));
+    assert(years.rows.every(x=>x.vintageLabel==='2021'));
+    await page.goto(base);
+    await page.waitForFunction(()=>document.querySelector('#busy').hidden && document.querySelector('#count').textContent.includes('件'));
+    await page.locator('#text').fill(tag);
+    await page.selectOption('#vintage','2021');
+    await page.locator('button[type=submit]').click();
+    await page.waitForFunction(()=>document.querySelector('#count').textContent==='3件');
+    const rowsText=await page.locator('#rows').innerText();
+    assert(!rowsText.includes('[2021]') && !rowsText.includes('(2021)'));
+    await page.locator('[data-sort=vintage]').click();
+    for(const cb of await page.locator('.product-select').all())await cb.check();
+    await page.locator('#download-csv').click();
+    const downloadEvent=page.waitForEvent('download');
+    await page.locator('#download-selected-csv').click();
+    const download=await downloadEvent;
+    const csv=fs.readFileSync(await download.path(),'utf8');
+    assert(csv.includes('"2021"'));assert(!csv.includes('[2021]') && !csv.includes('(2021)'));
+    await page.locator('#close-selected').click();
+    await page.locator('#rows tr').filter({hasText:years.rows.find(x=>x.vintageRaw==='[2021]').sku}).locator('button').click();
+    await page.locator('dialog[open]').waitFor();
+    assert((await page.locator('#detail-body').innerText()).includes('[2021]'));
+    await page.keyboard.press('Escape');
+    await page.selectOption('#vintage','NV');
+    const response=page.waitForResponse(r=>r.url().includes('/api/search?'));
+    await page.locator('button[type=submit]').click();
+    const nv=await (await response).json();
+    assert.equal(nv.rows.length,3);assert(nv.rows.every(x=>x.vintageLabel==='NV'));
+    await page.waitForFunction(()=>document.querySelector('#busy').hidden);
+    const nvText=await page.locator('#rows').innerText();assert(!nvText.includes('N.V'));
+    await page.screenshot({path:output+'/preview.png',fullPage:true});
+    assert.deepEqual(errors,[]);
+    fs.writeFileSync(output+'/ui-proof.json',JSON.stringify({base,yearMatches:3,nvMatches:3,optionsUnified:true,csvUnified:true,originalEvidencePreserved:true,errors},null,2));
+    console.log('Vintage API, options, UI, sorting, CSV and original evidence verified');
+  } finally { await browser.close(); }
+})().catch(e=>{console.error(e);process.exitCode=1});

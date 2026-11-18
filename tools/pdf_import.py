@@ -13,7 +13,7 @@ import tempfile
 from collections import Counter
 
 VERSION = 7
-PARSER_VERSIONS = {"diony": 11, "diony-news": 10}
+PARSER_VERSIONS = {"diony": 12, "diony-news": 10}
 PRODUCT_CODE = r"WE[A-Z]{2}\d{4}[A-Z]?"
 
 

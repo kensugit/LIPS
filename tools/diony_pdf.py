@@ -1,4 +1,4 @@
-"""Diony 2026 Vol.9 catalog and newsletter; source text is data only."""
+"""Diony verified 2026 catalogs and newsletter; source text is data only."""
 import io
 import json
 import re
@@ -22,8 +22,11 @@ def base(sku, page, number, raw):
 def diony(data):
     rows=[]
     with pdfplumber.open(io.BytesIO(data)) as pdf:
-        if len(pdf.pages)!=60 or '2026 Vol.9' not in pdf.pages[0].extract_text() or 'ディオニー' not in pdf.pages[-1].extract_text():
+        edition=(pdf.pages[0].extract_text() or '').strip()
+        if len(pdf.pages)!=60 or edition not in ('2026 Vol.9', '2026 Vol.10') or 'ディオニー' not in (pdf.pages[-1].extract_text() or ''):
             raise ValueError('Unsupported Diony catalog identity')
+        month='2026-10' if edition=='2026 Vol.10' else '2026-09'
+        note=NOTE.replace('2026 Vol.9（2026年9月版）', '2026 Vol.10（2026年10月版）') if month=='2026-10' else NOTE
         for num,p in enumerate(pdf.pages[2:59],3):
             anchors=[w for w in p.extract_words() if re.fullmatch(r'\d{5}',w['text']) and any(abs(w['x0']-x)<1 for x in [35.04,215.28,395.52])]
             if len(anchors)!=p.extract_text().count('参考小売/'):
@@ -51,8 +54,10 @@ def diony(data):
                 dot=next((c for c in separators if c['text']=='・' and c['x0']>slash['x1']),None)
                 kind=cell(slash['x0']-x-1,70,dot['x0']-x if dot else 180.24,87).replace('\n','').replace(' ','').replace('/','')
                 region=cell(34,0,180.24,13).split('酸化')[0].replace('準定番','').strip()
-                raw={'資料年月':'2026-09','商品コード':w['text'],'PDFページ':num,'商品カード原文':text,'税区分':'未記載・要確認','資料版':'2026 Vol.9'}
+                raw={'資料年月':month,'商品コード':w['text'],'PDFページ':num,'商品カード原文':text,'税区分':'未記載・要確認','資料版':edition}
                 r=base(w['text'],num,number,raw)
+                r['PriceNote']=note
+                r['Description']='ディオニー Diony '+note
                 r.update(ProductNameJa=' '.join(title[1:]), ProducerNameJa=title[0], ProductNameEn=cell(34,13,180.24,25),
                     Vintage=int(vintage) if re.fullmatch(r'(19|20)\d{2}',vintage) else None, VintageRaw=vintage,
                     VolumeMl=int(volume[:-2]),CaseSize=int(case[1]) * (int(case[2]) if case[2] else 1),ReferenceRetailPrice=int(m[1].replace(',','')),PriceRaw=m[1],
@@ -75,8 +80,9 @@ def diony(data):
                     r['PriceNote']+=' ケース在庫は原表を保持し、本数へ換算しない。'
                 r['Description']+=' '+text
                 rows.append(r)
-    if len(rows)!=516 or len({r['SupplierProductCode'] for r in rows})!=len(rows): raise ValueError('Catalog SKU count changed')
-    return rows,[NOTE]
+    expected={'2026 Vol.9':516, '2026 Vol.10':517}[edition]
+    if len(rows)!=expected or len({r['SupplierProductCode'] for r in rows})!=len(rows): raise ValueError(f'Catalog SKU count changed: {len(rows)}')
+    return rows,[note]
 
 
 def diony_news(data):

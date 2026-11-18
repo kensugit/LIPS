@@ -14,6 +14,14 @@ except ImportError:
 
 
 def arcan(data):
+    reader = PdfReader(io.BytesIO(data))
+    footer = reader.pages[-1].extract_text() or ""
+    if "株式会社アルカン" in footer and "標準希望" in "".join(p.extract_text() or "" for p in reader.pages):
+        try:
+            from .arcan_price_pdf import arcan_price
+        except ImportError:
+            from arcan_price_pdf import arcan_price
+        return arcan_price(data)
     rows, warnings, printed_numbers = [], [], []
     layouts = [p.extract_text(extraction_mode="layout") for p in PdfReader(io.BytesIO(data)).pages]
     month = re.search(r"(20\d{2})年(\d{1,2})月吉日", layouts[0])

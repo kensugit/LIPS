@@ -45,6 +45,8 @@ install -d -o root -g root -m 0755 /etc/lips-codex /usr/local/lib/lips-codex /ru
 install -o root -g root -m 0644 operator.pub /etc/lips-codex/operator.pub
 install -o root -g root -m 0755 dispatch.py /usr/local/lib/lips-codex/dispatch.py
 install -o root -g root -m 0755 rollback.sh /usr/local/sbin/lips-codex-rollback
+install -o root -g root -m 0755 prepare.py /usr/local/sbin/lips-codex-prepare
+install -o root -g root -m 0755 deploy-verified.sh /usr/local/sbin/lips-codex-deploy
 ssh-keygen -q -t ed25519 -N '' -f /etc/lips-codex/ssh_host_ed25519_key
 cat > /etc/lips-codex/sshd_config <<'EOF'
 Port 22223
@@ -74,6 +76,7 @@ LogLevel VERBOSE
 EOF
 cat > /etc/sudoers.d/lips-codex <<'EOF'
 catalogdeploy ALL=(root) NOPASSWD: /usr/local/sbin/catalogctl status, /usr/local/sbin/catalogctl deploy *, /usr/local/sbin/lips-codex-rollback ""
+catalogdeploy ALL=(root) NOPASSWD: /usr/local/sbin/lips-codex-prepare *, /usr/local/sbin/lips-codex-deploy *
 EOF
 chmod 0440 /etc/sudoers.d/lips-codex
 visudo -cf /etc/sudoers.d/lips-codex

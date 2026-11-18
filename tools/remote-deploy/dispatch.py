@@ -19,11 +19,11 @@ def file_digest(path):
     return digest.hexdigest()
 
 def parse_command(command):
-    if command in ('status', 'rollback'):
+    if command in ('status', 'inspect', 'rollback'):
         return command, None
-    match = re.fullmatch(r'(upload|deploy) ([0-9a-f]{64})', command)
+    match = re.fullmatch(r'(upload|prepare|deploy) ([0-9a-f]{64})', command)
     if not match:
-        raise ValueError('Allowed: status, upload <sha256>, deploy <approved-sha256>, rollback')
+        raise ValueError('Allowed: status, upload <sha256>, prepare <sha256>, deploy <approved-sha256>, rollback')
     return match.group(1), match.group(2)
 
 def receive(stream, directory, expected, limit=MAX_UPLOAD):
@@ -61,7 +61,8 @@ def main():
         return 0
     args = ['/usr/bin/sudo','-n','/usr/local/sbin/catalogctl',action]
     if action == 'rollback': args = ['/usr/bin/sudo','-n','/usr/local/sbin/lips-codex-rollback']
-    elif action == 'deploy': args.append(sha)
+    elif action in ('prepare','inspect'): args = ['/usr/bin/sudo','-n','/usr/local/sbin/lips-codex-prepare',sha if action=='prepare' else 'inspect']
+    elif action == 'deploy': args = ['/usr/bin/sudo','-n','/usr/local/sbin/lips-codex-deploy',sha]
     return subprocess.run(args, stdin=subprocess.DEVNULL, env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C.UTF-8'}, check=False).returncode
 
 if __name__ == '__main__':

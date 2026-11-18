@@ -14,7 +14,7 @@ def digest_file(path):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['status','upload','deploy','rollback'])
+    parser.add_argument('action',choices=['status','inspect','upload','prepare','deploy','rollback'])
     parser.add_argument('--package',type=Path)
     parser.add_argument('--sha256')
     parser.add_argument('--key',type=Path,default=Path.home()/'.ssh/lips_codex_ed25519')
@@ -27,7 +27,7 @@ def main():
         sha=digest_file(args.package)
         if args.sha256 and args.sha256!=sha: parser.error('Local package SHA256 mismatch')
         command+=' '+sha
-    elif args.action=='deploy':
+    elif args.action in ('prepare','deploy'):
         if not re.fullmatch('[0-9a-f]{64}',args.sha256 or ''): parser.error('--sha256 required')
         command+=' '+args.sha256
     elif args.package or args.sha256: parser.error('Package arguments are not valid for this action')
