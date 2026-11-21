@@ -107,6 +107,15 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  var sweetSparkling = await new SemanticSearchService(local,interpreter).SearchAsync(new("辛口のスパークリングワイン"),default);
  Need(sweetSparkling.FallbackReason=="dictionary_match" && local.LastPlan is {Sparkling:true,Taste:"辛口"} && interpreter.Calls==0);
 }
+{
+ var plan = NaturalSearch.Parse(new CatalogFilter(Text:"フランスの在庫が有る赤ワインで上代1万円以内"));
+ Need(plan.Filter is {Country:"フランス", ProductType:"赤", PriceMax:10000, AvailableOnly:true} &&
+      string.IsNullOrWhiteSpace(plan.Filter.Text));
+ var rightBank = NaturalSearch.Parse(new CatalogFilter(Text:"ボルドー右岸で上代10000円以内で在庫が有る赤ワイン"));
+ Need(rightBank.Filter is {PriceMax:10000, AvailableOnly:true, ProductType:"赤"} &&
+      rightBank.Filter.Text?.Contains("右岸", StringComparison.Ordinal)==true &&
+      !rightBank.Filter.Text.Contains("上代", StringComparison.Ordinal));
+}
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{
  public List<string> Messages {get;}=[];

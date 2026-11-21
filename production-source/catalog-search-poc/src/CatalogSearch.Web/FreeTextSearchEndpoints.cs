@@ -1,14 +1,13 @@
 using System.Text.Json;
 using CatalogSearch.Application;
-using CatalogSearch.Infrastructure;
 namespace CatalogSearch.Web;
 public static class FreeTextSearchEndpoints
 {
  public static void MapFreeTextSearchEndpoints(this WebApplication app)
  {
-  app.MapGet("/api/free-text-search/options",async(CatalogSearchDbContext db,IFreeTextInterpreter interpreter,ISemanticInterpreter semantic,IConfiguration config,CancellationToken ct)=>
+  app.MapGet("/api/free-text-search/options",async(IFreeTextSearchStore store,IFreeTextInterpreter interpreter,ISemanticInterpreter semantic,IConfiguration config,CancellationToken ct)=>
   {
-   var snapshot=await new CatalogSearchSnapshotProvider(db).CaptureAsync(ct);
+   var snapshot=await store.SnapshotAsync(ct);
    var v2=bool.TryParse(config["FreeTextSearch:SemanticV2Enabled"],out var enabled)&&enabled;
    return Results.Ok(new {catalogVersion=snapshot.Version,options=snapshot.Options,suppliers=snapshot.Suppliers,modelEnabled=v2?semantic.Enabled:interpreter.Enabled,semanticV2Enabled=v2});
   });

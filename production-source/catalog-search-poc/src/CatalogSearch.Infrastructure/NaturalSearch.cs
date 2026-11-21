@@ -14,7 +14,7 @@ public static class NaturalSearch
 {
     private const string Number = @"(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?";
     private const string PriceNumber = "(?:" + Number + "万(?:" + Number + "千)?(?:" + Number + ")?|" + Number + "千(?:" + Number + ")?|" + Number + @"|[零〇一二三四五六七八九十百千万]+)";
-    private const string PriceLabel = @"(?:(?:希望小売価格|価格|予算|税抜)(?:は|が|:)?\s*)?";
+    private const string PriceLabel = @"(?:(?:希望小売価格|参考上代価格|参考上代|上代価格|上代|価格|予算|税抜)(?:は|が|:)?\s*)?";
     private static string Replace(string input, string pattern, MatchEvaluator evaluator) =>
         Regex.Replace(input, pattern, evaluator, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
