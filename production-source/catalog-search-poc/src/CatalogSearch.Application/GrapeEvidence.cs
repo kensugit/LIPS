@@ -113,10 +113,11 @@ public static class GrapeEvidence
         {
             if (string.IsNullOrWhiteSpace(value) || value.Length > 100 || value.Any(c => char.IsControl(c) || char.GetUnicodeCategory(c) is UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator)) return false;
             string normalized;
-            try { normalized = Normalize(value); } catch (ArgumentException) { return false; }
+            try { normalized = value.Normalize(NormalizationForm.FormKC).Trim(); } catch (ArgumentException) { return false; }
             if (normalized.Length is < 1 or > 100 || normalized.IndexOfAny([',', '、', ';', '/', '%']) >= 0 || normalized.Contains("主体", StringComparison.Ordinal) || !seen.Add(normalized)) return false;
         }
-        aliases = seen.ToArray();
+        // Explicit spelling variants can share a legacy evidence-normalization key.
+        aliases = seen.Select(Normalize).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         return true;
     }
 

@@ -133,6 +133,8 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  Need(store.LastPlan is { Filter: {VintageRaw:"2020",VolumeMl:750}, Jan:"0000000000005" });
  await service.SearchAsync(new("フランスの赤を3,000円以下で（画面では白を指定）", new(ProductType:"白")), default);
  Need(store.LastPlan is {Filter:{Country:"フランス",ProductType:"白",PriceMax:3000}});
+ await service.SearchAsync(new("イタリアの赤"), default);
+ Need(store.LastPlan is {Filter:{Country:"イタリア",ProductType:"赤"},Grape:null});
  Need(interpreter.Calls==0);
  Need(NaturalSearch.Parse(new(Text:"SKU-A2020年")).Filter.VintageRaw is null);
  Need(NaturalSearch.Parse(new(Text:"2020年代")).Filter.VintageRaw is null);
