@@ -13,7 +13,7 @@ public sealed class ImporterYourCellarPolicyTests
     {
         var policy=new ImporterPageAdapterPolicy(reviewedYourCellarSuppliers:Rules());
         var selected=policy.Select("SYNTHETIC");var body=Encoding.UTF8.GetBytes(YourCellarProductPageIdentityTests.Page());
-        Assert.StartsWith("yourcellar-product/3+",selected.Version);
+        Assert.StartsWith("yourcellar-product/4+",selected.Version);
         Assert.True(selected.TryExtract(Identity,Url,body,out var grapes));Assert.True(selected.Verify(Identity,grapes,Url,body));
         Assert.False(selected.Verify(Identity,[new("メルロー","メルロー 100%")],Url,body));
         Assert.False(selected.TryExtract(Identity,Url.Replace("yourcellar.jp","evil.example"),body,out _));

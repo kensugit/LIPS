@@ -26,7 +26,7 @@ public sealed class YourCellarProductPageIdentity
         foreach (var (key, rule) in reviewedProducers)
             if (!ImporterEvidenceValidator.ValidText(key,200) || rule is null || !ImporterEvidenceValidator.ValidText(rule.DisplayName,200) ||
                 !ImporterEvidenceValidator.ValidText(rule.CategoryName,300) || !producers.TryAdd(key,rule)) throw new ArgumentException("YOURCELLAR_RULES_INVALID");
-        Version="yourcellar-product/3+"+Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { supplier, rules=producers.OrderBy(x=>x.Key,StringComparer.Ordinal).ToArray() }))).ToLowerInvariant();
+        Version="yourcellar-product/4+"+Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { supplier, rules=producers.OrderBy(x=>x.Key,StringComparer.Ordinal).ToArray() }))).ToLowerInvariant();
     }
 
     public sealed record ExtractionDiagnostic(bool Accepted, string Stage, IReadOnlyDictionary<string,bool?> Predicates);
@@ -64,7 +64,9 @@ public sealed class YourCellarProductPageIdentity
             Check("DESCRIPTION_TITLE",()=>{
                 var descriptions=wrap!.Children.Where(n=>n.Tag=="div"&&n.Class("desc-content")).ToArray();if(descriptions.Length!=2)return false;
                 var name=One(descriptions[0],"p",null).Text().Split('\n',StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries);
-                return name.Length is >=1 and <=2 && Space(name[0])==expected && (name.Length!=2 || Regex.IsMatch(name[1],"^[A-Za-z0-9 ,.'’&()/-]{1,300}$",RegexOptions.CultureInvariant,Budget));});
+                return name.Length is >=1 and <=2 && Space(name[0])==expected &&
+                    (name.Length!=2 || Regex.IsMatch(name[1].Replace('\u3000',' '),
+                    "^[A-Za-z0-9 ,.'’&()/-]{1,300}$",RegexOptions.CultureInvariant,Budget));});
             Check("SPEC_DL_SHAPE",()=>{spec=Pairs(One(wrap!,"dl","desc-spec"));return true;});
             if(spec is not null)
             {

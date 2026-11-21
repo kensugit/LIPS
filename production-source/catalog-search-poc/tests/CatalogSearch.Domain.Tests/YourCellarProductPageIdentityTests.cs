@@ -11,6 +11,12 @@ public sealed class YourCellarProductPageIdentityTests
     internal static string Page()=>"<html><body><div class='detail'><div class='item-detail'><div class='item-title'><p class='item-category-name'><a>表示生産者（合成地域）</a></p><p class='item-name'>"+Title+"</p></div><ul class='item-info-list'><li><dl><dt>独自商品コード</dt><dd>SKU-A</dd></dl></li></ul></div><div class='item-description-cont'><div class='item-description'><div class='description-wrap'><div class='desc-content'><p>"+Title+"<br>Producer Product</p></div><div class='desc-content'><p>合成説明</p></div><dl class='desc-spec'><dt>品種</dt><dd>サンジョヴェーゼ 100%</dd><dt>タイプ</dt><dd>赤ワイン</dd></dl></div></div></div></div></body></html>";
     [Fact] public void ObservedShapeSyntheticFixturePassesWithoutClaimingLiveIdentity()
     {Assert.True(Adapter().TryExtract(Identity,Url,Encoding.UTF8.GetBytes(Page()),out var result));Assert.Equal(new ImporterGrapeEvidence("サンジョヴェーゼ","サンジョヴェーゼ 100%"),Assert.Single(result));}
+    [Fact] public void EnglishDescriptionLineMayUseIdeographicSpace()
+    {
+        var page = Page().Replace("Producer Product", "Producer\u3000Product", StringComparison.Ordinal);
+        Assert.True(Adapter().TryExtract(Identity, Url, Encoding.UTF8.GetBytes(page), out _));
+        Assert.False(Adapter().TryExtract(Identity with { Vintage = "2024" }, Url, Encoding.UTF8.GetBytes(page), out _));
+    }
     [Theory]
     [InlineData("シュナン・ブラン", false)]
     [InlineData("シュナンブラン", false)]

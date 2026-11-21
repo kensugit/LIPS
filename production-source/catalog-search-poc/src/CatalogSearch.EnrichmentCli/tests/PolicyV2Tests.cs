@@ -19,7 +19,7 @@ public sealed class PolicyV2Tests
     [Fact] public void TypedDispatchAndBoundVersionPreserveV1()
     {
         var parsed=AcquisitionInput.Validate(Bytes(Request()),Bytes(Policy()));
-        Assert.StartsWith("yourcellar-product/3+",parsed.Adapters.Select("CELLAR").Version);
+        Assert.StartsWith("yourcellar-product/4+",parsed.Adapters.Select("CELLAR").Version);
         Assert.StartsWith("jet-product-about/1+",parsed.Adapters.Select("JET").Version);
         Assert.Equal("official-product-jsonld/1",parsed.Adapters.Select("OTHER").Version);
         Assert.Equal(parsed.Adapters.BoundVersion(parsed.Hosts),parsed.ExpectedExtractorVersion);Assert.InRange(parsed.ExpectedExtractorVersion.Length,1,100);
@@ -58,7 +58,7 @@ public sealed class PolicyV2Tests
         var rb=Bytes(Request());var pb=Bytes(Policy());var rp=Path.Combine(root,"request.json");var pp=Path.Combine(root,"policy.json");File.WriteAllBytes(rp,rb);File.WriteAllBytes(pp,pb);
         string[] args=["--request",rp,"--policy",pp,"--store-root",root,"--receipt-root",root,"--request-sha256",AcquisitionInput.Sha(rb),"--policy-sha256",AcquisitionInput.Sha(pb)];
         int calls=0;
-        Task<CatalogSearch.Infrastructure.ImporterAcquisitionResult> Fake(ValidatedAcquisition input,string _){calls++;Assert.StartsWith("yourcellar-product/3+",input.Adapters.Select("CELLAR").Version);return Task.FromResult(new CatalogSearch.Infrastructure.ImporterAcquisitionResult("PAGE_REQUIRES_REVIEW_NOT_SAVED",null));}
+        Task<CatalogSearch.Infrastructure.ImporterAcquisitionResult> Fake(ValidatedAcquisition input,string _){calls++;Assert.StartsWith("yourcellar-product/4+",input.Adapters.Select("CELLAR").Version);return Task.FromResult(new CatalogSearch.Infrastructure.ImporterAcquisitionResult("PAGE_REQUIRES_REVIEW_NOT_SAVED",null));}
         Assert.Equal(0,await Program.Run(args,Fake));Assert.Equal(0,calls);Assert.Equal(2,Directory.GetFiles(root).Length);
         Assert.Equal(0,await Program.Run([..args,"--fetch-and-save"],Fake));Assert.Equal(1,calls);
         Assert.Equal(1,await Program.Run([..args,"--fetch-and-save"],Fake));Assert.Equal(1,calls);
