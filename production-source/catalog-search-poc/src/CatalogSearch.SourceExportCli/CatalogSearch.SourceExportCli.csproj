@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../CatalogSearch.Infrastructure/CatalogSearch.Infrastructure.csproj" /><ProjectReference Include="../CatalogSearch.EnrichmentCli/CatalogSearch.EnrichmentCli.csproj" /></ItemGroup>
+</Project>

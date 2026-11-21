@@ -6,12 +6,13 @@ public static class FreeTextSearchEndpoints
 {
  public static void MapFreeTextSearchEndpoints(this WebApplication app)
  {
-  app.MapGet("/api/free-text-search/options",async(CatalogSearchDbContext db,IFreeTextInterpreter interpreter,CancellationToken ct)=>
+  app.MapGet("/api/free-text-search/options",async(CatalogSearchDbContext db,IFreeTextInterpreter interpreter,ISemanticInterpreter semantic,IConfiguration config,CancellationToken ct)=>
   {
    var snapshot=await new CatalogSearchSnapshotProvider(db).CaptureAsync(ct);
-   return Results.Ok(new {catalogVersion=snapshot.Version,options=snapshot.Options,suppliers=snapshot.Suppliers,modelEnabled=interpreter.Enabled});
+   var v2=bool.TryParse(config["FreeTextSearch:SemanticV2Enabled"],out var enabled)&&enabled;
+   return Results.Ok(new {catalogVersion=snapshot.Version,options=snapshot.Options,suppliers=snapshot.Suppliers,modelEnabled=v2?semantic.Enabled:interpreter.Enabled,semanticV2Enabled=v2});
   });
-  app.MapPost("/api/free-text-search/search",async(HttpRequest request,FreeTextSearchService service,CancellationToken ct)=>
+  app.MapPost("/api/free-text-search/search",async(HttpRequest request,FreeTextSearchService service,SemanticSearchService semantic,IConfiguration config,CancellationToken ct)=>
   {
    try
    {
@@ -21,6 +22,8 @@ public static class FreeTextSearchEndpoints
     while(true){var count=await request.Body.ReadAsync(buffer,ct);if(count==0)break;if(bytes.Length+count>16384)return Results.BadRequest(new {error="request_too_large"});bytes.Write(buffer,0,count);}
     using var doc=JsonDocument.Parse(bytes.ToArray(),new JsonDocumentOptions {MaxDepth=8});CheckDuplicates(doc.RootElement);
     var input=doc.RootElement.Deserialize<FreeTextUiRequest>(FreeTextSearchContract.JsonOptions)??throw new ArgumentException("request_required");
+    if(!string.IsNullOrWhiteSpace(input.Query)&&bool.TryParse(config["FreeTextSearch:SemanticV2Enabled"],out var v2)&&v2)
+     return Results.Ok(await semantic.SearchAsync(input,ct));
     return Results.Ok(await service.SearchAsync(input,ct));
    }
    catch(Exception ex)when(ex is ArgumentException or JsonException){return Results.BadRequest(new {error="invalid_search_request"});}

@@ -1,3 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup><ProjectReference Include="../CatalogSearch.Domain/CatalogSearch.Domain.csproj" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Dictionaries/wine-search.ja.json" LogicalName="wine-search.ja.json" WithCulture="false" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Dictionaries/catalog-search-elements.ja.json" LogicalName="catalog-search-elements.ja.json" WithCulture="false" /></ItemGroup>
 </Project>

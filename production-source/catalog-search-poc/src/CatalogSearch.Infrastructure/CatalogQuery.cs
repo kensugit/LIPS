@@ -3,8 +3,34 @@ using CatalogSearch.Domain;
 using Microsoft.EntityFrameworkCore;
 using NpgsqlTypes;
 namespace CatalogSearch.Infrastructure;
-public sealed class CatalogQuery(CatalogSearchDbContext db)
+public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentReader? enrichment = null, string? enrichmentVersion = null)
 {
+    public async Task<SemanticCatalogSearchResult> SearchSemanticAsync(SemanticSearchPlan plan, CancellationToken ct = default)
+    {
+        plan.RequireExecutable();
+        if (plan.CountryAliases is null || plan.CountryAliases.Count > 3 ||
+            !JapaneseWineDictionary.AreCompatibleCountryAliases(plan.CountryAliases) ||
+            plan.CountryAliases.Distinct(StringComparer.Ordinal).Count() != plan.CountryAliases.Count ||
+            (plan.CountryAliases.Count > 0 && !plan.CountryAliases.Contains(plan.Filter.Country ?? "", StringComparer.Ordinal)))
+            throw new ArgumentException("Invalid reviewed country aliases.");
+        // The wire contract remains capped at 20 canonical regions. Reviewed geography
+        // may expand those into multiple exact source spellings before this internal query.
+        if (plan.Regions.Count > 128 || plan.Regions.Any(string.IsNullOrWhiteSpace) ||
+            (plan.Taste is not null && !WineTasteEvidence.Supports(plan.Taste)) ||
+            (plan.Grape is not null && (!GrapeRegistry.TryGetAliases(plan.Grape.Name, out _) || plan.Grape.Mode is not ("contains" or "predominant"))))
+            throw new ArgumentException("Invalid semantic predicate.");
+        var supplier = await ResolveSupplierAsync(plan.SupplierCode, ct);
+        var counters = new SemanticCounters();
+        var rows = await SearchPlanAsync(new(plan.Filter with { Text = null, Region = null }, false, [], SupplierId: supplier),
+            plan.Keywords, ct, plan, counters);
+        return new(rows, counters.Unavailable, counters.Conflicts, true);
+    }
+
+    private sealed class SemanticCounters
+    {
+        public int Unavailable; public int Conflicts;
+        public Dictionary<Guid, ImporterSearchEvidence> Sources { get; } = new();
+    }
     public async Task<NaturalSearchPlan> InterpretAsync(CatalogFilter filter, CancellationToken ct = default)
     {
         var suppliers = await db.Suppliers.AsNoTracking().Select(x => new SupplierSearchName(x.Id, x.Name, x.Code)).ToListAsync(ct);
@@ -54,18 +80,26 @@ public sealed class CatalogQuery(CatalogSearchDbContext db)
         };
     }
 
-    private async Task<IReadOnlyList<CatalogResult>> SearchPlanAsync(NaturalSearchPlan natural, IReadOnlyList<string>? literalTerms, CancellationToken ct)
+    private async Task<IReadOnlyList<CatalogResult>> SearchPlanAsync(NaturalSearchPlan natural, IReadOnlyList<string>? literalTerms, CancellationToken ct,
+        SemanticSearchPlan? semantic = null, SemanticCounters? counters = null)
     {
         var filter = natural.Filter;
         if (filter.Limit is < 1 or > 2000 || filter.PriceMax < 0 || filter.PriceMin < 0 || filter.PriceMin > filter.PriceMax || filter.VolumeMl <= 0) throw new ArgumentException("Invalid search limits.");
         var query = db.SupplierProducts.AsNoTracking();
         if (natural.SupplierId is { } supplierId) query = query.Where(x => x.SupplierId == supplierId);
-        if (!string.IsNullOrWhiteSpace(filter.Country)) query = query.Where(x => x.Country == filter.Country);
+        if (semantic?.CountryAliases.Count > 0) query = query.Where(x => semantic.CountryAliases.Contains(x.Country));
+        else if (!string.IsNullOrWhiteSpace(filter.Country)) query = query.Where(x => x.Country == filter.Country);
         if (!string.IsNullOrWhiteSpace(filter.Region)) query = query.Where(x => x.Region == filter.Region);
+        if (semantic?.Regions.Count > 0) query = query.Where(x => semantic.Regions.Contains(x.Region));
         if (!string.IsNullOrWhiteSpace(filter.ProductType))
-            query = natural.Sparkling || natural.Champagne
+            query = natural.Sparkling || natural.Champagne || semantic?.Sparkling == true
                 ? query.Where(x => x.ProductType.Contains(filter.ProductType))
                 : query.Where(x => x.ProductType == filter.ProductType);
+        if (semantic?.Sparkling == true)
+        {
+            var sparklingTypes = CatalogSearchVocabulary.SparklingSourceTypes.ToArray();
+            query = query.Where(x => sparklingTypes.Contains(x.ProductType));
+        }
         if (natural.Sparkling) query = query.Where(x => x.ProductType.Contains("泡") || x.ProductType == "スパークリング");
         if (natural.Champagne) query = query.Where(x => (x.Region == "シャンパーニュ" || x.Region == "シャンパーニュ地方" || x.Region == "Champagne") && (x.ProductType.Contains("泡") || x.ProductType == "スパークリング"));
         if (filter.VolumeMl is not null) query = query.Where(x => x.VolumeMl == filter.VolumeMl);
@@ -91,17 +125,73 @@ public sealed class CatalogQuery(CatalogSearchDbContext db)
             query = query.Where(x => EF.Functions.ILike(x.SupplierProductCode, pattern, "\\") || db.ProductSearchDocuments.Any(d => d.EntityType == SearchEntityType.SupplierProduct && d.SourceRecordId == x.Id &&
                 ((useFts && EF.Property<NpgsqlTsVector>(d, "SearchVector").Matches(EF.Functions.PlainToTsQuery("simple", term))) || EF.Functions.ILike(d.SearchText, pattern, "\\"))));
         }
-        var matches = await (from p in query
+        var matches = (from p in query
             join supplier in db.Suppliers.AsNoTracking() on p.SupplierId equals supplier.Id
             join e in db.SourceEvidence.AsNoTracking() on new { ProductId = p.Id, SourceId = p.CurrentSourceDocumentId }
                 equals new { ProductId = e.SupplierProductId, SourceId = (Guid?)e.SourceDocumentId }
-            orderby p.SupplierProductCode
+            orderby p.SupplierProductCode, p.Id, e.Id
             select new { supplier.Code, e.RawCellsJson, e.ExtractedRowJson, Result = new CatalogResult(p.SupplierProductCode, p.SupplierProductName, p.ProductNameEn,
                 p.ProducerNameJa, p.ProducerNameEn, p.Vintage, p.VintageRaw, p.VolumeMl,
                 p.CurrentPrice, p.TaxIncluded, p.CurrentInventoryStatus, p.CurrentInventoryQuantity,
                 e.SheetName, e.RowNumber, e.SourceDocumentId, p.Country, p.Region, p.ProductType) { SupplierName = supplier.Name, SupplierProductId = p.Id, CodeKind = p.CodeKind, OriginalSupplierProductCode = p.OriginalSupplierProductCode } })
-            .Take(filter.Limit).ToListAsync(ct);
-        return matches.Select(x => x.Result with { AbundantInventory = HasAbundantInventory(x.ExtractedRowJson), SpecialPurchasePrice = SpecialPurchasePrice.Read(x.Code, x.RawCellsJson), DuplicateMinimumSelected = x.Code == "LA_VINEE" && HasDuplicateSelection(x.ExtractedRowJson) }).ToList();
+            ;
+        // Evaluate evidence before the result limit. A matching row after the first N candidates must remain eligible.
+        var selected = await SemanticResultSelector.SelectAsync(
+            (semantic?.Grape is null && semantic?.Taste is null ? matches.Take(filter.Limit) : matches).AsAsyncEnumerable(),
+            x => (semantic?.Taste is not { } taste || WineTasteEvidence.Matches(x.ExtractedRowJson, taste)) &&
+                (semantic?.Grape is not { } grape || AcceptGrape(x.Code, x.Result, x.ExtractedRowJson, grape, counters!)), filter.Limit, ct);
+        return selected.Select(x => x.Result with { AbundantInventory = HasAbundantInventory(x.ExtractedRowJson), SpecialPurchasePrice = SpecialPurchasePrice.Read(x.Code, x.RawCellsJson), DuplicateMinimumSelected = x.Code == "LA_VINEE" && HasDuplicateSelection(x.ExtractedRowJson),
+            ImporterEvidence = counters is not null && counters.Sources.TryGetValue(x.Result.SupplierProductId, out var source) ? source : null }).ToArray();
+    }
+
+    private bool AcceptGrape(string supplierCode, CatalogResult product, string extractedJson, SemanticGrapePredicate grape, SemanticCounters counts)
+    {
+        var original = SemanticGrapeMatcher.ReadOriginal(extractedJson);
+        if (string.IsNullOrWhiteSpace(original) && supplierCode == "FINESSE")
+            original = SemanticGrapeMatcher.ReadFinesseDescriptionClaim(extractedJson, product.ProductNameJa);
+        var decision = SemanticGrapeMatcher.Match(original, grape);
+        // Enrichment lookup is bound to current source bytes and exact product identity, not just name.
+        if (enrichment is not null)
+        {
+            if (string.IsNullOrWhiteSpace(enrichmentVersion)) throw new ArgumentException("Enrichment configuration version is required.");
+            var identity = new ImporterProductIdentity(supplierCode, product.Sku, product.ProducerNameJa,
+                product.ProductNameJa, product.VintageRaw, product.VolumeMl, product.ProductType);
+            var saved = enrichment.ReadVerifiedForProduct(identity,
+                SourceFingerprint.Create(product.SourceDocumentId, extractedJson), enrichmentVersion, DateTimeOffset.UtcNow);
+            if (saved.Status == "conflict")
+            {
+                GrapeRegistry.TryGetAliases(grape.Name, out var conflictAliases);
+                if (saved.Content is null || saved.Content.Grapes.Any(g => conflictAliases.Contains(
+                    g.Grape.Replace("サンジョヴェーゼ", "サンジョベーゼ", StringComparison.Ordinal), StringComparer.OrdinalIgnoreCase)))
+                { counts.Conflicts++; return false; }
+            }
+            if (saved.Status == "verified" && saved.Content is { } content)
+            {
+                GrapeRegistry.TryGetAliases(grape.Name, out var aliases);
+                var relevant = content.Grapes.Where(g => aliases.Contains(g.Grape.Replace("サンジョヴェーゼ", "サンジョベーゼ", StringComparison.Ordinal), StringComparer.OrdinalIgnoreCase)).ToArray();
+                if (relevant.Length == 1)
+                {
+                    var supplied = SemanticGrapeMatcher.Match(relevant[0].SourceExcerpt, grape);
+                    if (decision.ExplicitPercent is { } a && supplied.ExplicitPercent is { } b && a != b)
+                    { counts.Conflicts++; return false; }
+                    var originalMajority = SemanticGrapeMatcher.Match(original, grape with { Mode = "predominant" });
+                    var suppliedMajority = SemanticGrapeMatcher.Match(relevant[0].SourceExcerpt, grape with { Mode = "predominant" });
+                    if ((originalMajority.Included && suppliedMajority.ExplicitPercent <= 50) ||
+                        (suppliedMajority.Included && originalMajority.ExplicitPercent <= 50))
+                    { counts.Conflicts++; return false; }
+                    if (supplied.Included)
+                    {
+                        counts.Sources[product.SupplierProductId] = new(content.FinalUrl, content.FetchedAtUtc,
+                            grape.Name, relevant[0].SourceExcerpt, saved.ContentRecordSha256!);
+                        return true;
+                    }
+                }
+            }
+        }
+        if (decision.Included) return true;
+        // An explicit zero/minority is a known non-match; unknown evidence is separately visible.
+        if (decision.ExplicitPercent is null) counts.Unavailable++;
+        return false;
     }
     private static bool HasAbundantInventory(string json)
     {

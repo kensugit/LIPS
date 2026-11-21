@@ -16,7 +16,8 @@ public static class VintageNotation
             unwrapped = unwrapped[1..^1].Trim();
         if (Regex.IsMatch(unwrapped, @"^[0-9]{4}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
             return unwrapped;
-        if (Regex.IsMatch(unwrapped, @"^[NM]\s*\.?\s*V\s*\.?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+        if (CatalogSearchVocabulary.IsNonVintage(unwrapped) ||
+            Regex.IsMatch(unwrapped, @"^[NM]\s*\.?\s*V\s*\.?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
             return "NV";
         return raw; // Age statements, blends and unknown values are not inferred.
     }

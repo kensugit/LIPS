@@ -68,8 +68,29 @@ function adoptedConditions(conditions) {
  if(f.priceMax!=null)parts.push('希望小売価格の上限（税抜）：'+money(f.priceMax));
  if(f.availableOnly===true)parts.push('在庫あり・少量のみ');
  if(c.keywords?.length)parts.push('キーワード：'+c.keywords.join(' '));
+ if(c.regions?.length)parts.push('産地（いずれか）：'+c.regions.join(' / '));
+ if(c.geographyCoverage)parts.push(c.geographyCoverage);
+ if(c.grape)parts.push('品種：'+c.grape.name+(c.grape.mode==='predominant'?'（過半または主体の根拠あり）':'（含有の根拠あり）'));
+ if(c.taste)parts.push('味わい：'+c.taste+'（原本の記載）');
+ if(c.sparkling)parts.push('発泡タイプ：スパークリング');
  if(c.parsedConditions?.length)parts.push(...c.parsedConditions);
  return [...new Set(parts)];
+}
+function appendImporterEvidence(parent,evidence) {
+ if(!evidence)return;
+ const section=el('section');section.append(el('h3','インポーター公式商品ページの補完根拠'),el('p','品種条件の判定に使用した情報です。原本の価格・在庫・商品記述は変更していません。'));
+ const dl=el('dl');
+ const fetched=typeof evidence.fetchedAtUtc==='string'?new Date(evidence.fetchedAtUtc):null;
+ const fetchedLabel=fetched&&!Number.isNaN(fetched.getTime())?fetched.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'})+'（日本時間）':'情報なし';
+ for(const [label,value]of [['品種',evidence.grape],['取得日時',fetchedLabel],['出典の記述',evidence.sourceExcerpt]])
+  dl.append(el('dt',label),el('dd',typeof value==='string'?value:'情報なし'));
+ section.append(dl);
+ try {
+  const url=new URL(evidence.sourceUrl);
+  if(url.protocol!=='https:'||url.username||url.password)throw Error('invalid_source');
+  const link=el('a','公式商品ページを開く');link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';section.append(link);
+ }catch{section.append(el('p','出典URLを確認できません。'));}
+ parent.append(section);
 }
 async function freeTextSearch() {
  const response=await fetch('/api/free-text-search/search',{method:'POST',headers:{'Content-Type':'application/json','X-Catalog-Action':'local-demo'},body:JSON.stringify(searchRequest())});
@@ -84,18 +105,27 @@ function validPriceRange() {
 }
 
 function showSearchResults(result) {
+ const awaitingConditions=result.mode==='needsClarification';
  data = result.rows;
  for(const row of data)if(selectedProducts.has(productKey(row)))selectedProducts.set(productKey(row),row);
  $('csv-status').textContent = result.capped
   ? '検索結果は先頭2,000件です。条件を絞って再検索し、必要な商品を追加してください。選択は保持されます。'
   : 'チェックした商品だけをCSV出力します。再検索・ページ切り替え後も選択は保持され、追加できます。';
  const conditions=adoptedConditions(result.conditions);
- $('interpreted').textContent=conditions.length?'採用した検索条件：'+conditions.join(' ／ '):'採用した検索条件：すべて';
- $('search-mode').textContent=result.mode==='model'?'AI解釈による検索（画面の明示条件を優先）':'規則検索：'+(fallbackLabels[result.fallbackReason]||'AI解釈を採用せず、規則で検索しました。');
+ $('interpreted').textContent=(awaitingConditions?'確認中の検索条件：':'採用した検索条件：')+(conditions.length?conditions.join(' ／ '):awaitingConditions?'未確定':'すべて');
+ const clarificationLabels={explicit_red_not_adopted:'赤の条件',explicit_white_not_adopted:'白の条件',explicit_stock_not_adopted:'在庫条件',explicit_country_not_adopted:'国の条件',explicit_grape_not_adopted:'品種の条件',explicit_predominance_not_adopted:'主体の条件',geography_scope_unverified:'地理的な範囲',explicit_price_min_not_adopted:'価格下限',explicit_price_max_not_adopted:'価格上限',explicit_volume_not_adopted:'容量',explicit_vintage_not_adopted:'年',price_scope_unverified:'価格の意味',explicit_conditions_unverified:'明示条件',unparsed_terms:'未解釈の条件'};
+ $('search-mode').textContent=result.mode==='needsClarification'
+  ? '条件を確定できないため検索していません。'+(result.clarificationReasons||[]).map(x=>clarificationLabels[x]||fallbackLabels[x]||'AI解釈を確認できません').join(' ／ ')+(result.unparsedTerms?.length?'。未解釈：'+result.unparsedTerms.join(' ／ '):'')+'。文章を具体化するか、画面で条件を指定してください。'
+  : result.fallbackReason==='dictionary_match'?'辞書による検索（画面の明示条件を優先）'
+  : result.mode==='model'?'AI解釈による検索（画面の明示条件を優先）':'規則検索：'+(fallbackLabels[result.fallbackReason]||'AI解釈を採用せず、規則で検索しました。');
+ if(result.evidenceUnavailableCount||result.evidenceConflictCount||result.complete===false&&result.mode==='model')
+  $('search-mode').textContent+=' 確認した候補中、根拠不足 '+(result.evidenceUnavailableCount||0)+'件、根拠の不一致 '+(result.evidenceConflictCount||0)+'件。条件を確認できた商品だけを表示しています。'+(result.complete===false?'全件の確認は完了していません。':'');
  applySort();
  page = 0;
- $('count').textContent = `${data.length.toLocaleString()}件${result.capped ? '（先頭2,000件）' : ''}`;
+ $('count').textContent = awaitingConditions?'未検索':`${data.length.toLocaleString()}件${result.capped ? '（先頭2,000件）' : ''}`;
+ $('empty').textContent = awaitingConditions?'条件の確認待ちのため、まだ検索していません。':'該当する商品はありません。条件を減らして再検索してください。';
  render();
+ if(awaitingConditions)$('page').textContent='未検索';
 }
 
 function showSearchFailure(message) {
@@ -156,7 +186,7 @@ function appendSourcePrices(row,unadopted){
  for(const price of row.PriceComponents||[]){const unit=units[price.Unit]||price.Unit||'単位未確認',tax=price.TaxIncluded===true?'税込':price.TaxIncluded===false?'税抜':'税区分未確認';section.append(el('p',(labels[price.Kind]||price.Kind||'種類未確認')+'：'+money(price.Amount)+'（'+tax+'・'+unit+'） 原表記：'+(price.Raw??'記載なし')));}
  $('detail-body').append(section);
 }
-async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',sourceSku(r)||'記載なし（内部IDで管理）'],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['年号の原表記',row.VintageRaw||'記載なし'],['希望小売の原表記',r.codeKind==='InternalIdentity'?'単位確認中（下記の原典価格を参照）':row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',r.codeKind==='InternalIdentity'?'記載なし':(row.OriginalSupplierProductCode||row.SupplierProductCode)],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',r.codeKind==='InternalIdentity'?'原典の商品表記を保持し、内部IDで対応付けています。':(row.Description||'記載なし')]])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl);if(r.codeKind==='InternalIdentity'||row.PriceComponents?.length)appendSourcePrices(row,r.codeKind==='InternalIdentity');if(row.DuplicateMinimumSelected){const dup=el('section');dup.append(el('h3','重複あり・少ない在庫を採用'),el('p','数量は加算していません。両方の原典行を保持しています。'));for(const occurrence of row.Occurrences||[]){const item=el('details');item.append(el('summary',occurrence.Sheet+'!'+occurrence.Row+'：'+occurrence.Inventory.Quantity+'本'+(occurrence.Row===row.SourceRow?'（採用）':'')));const cells=el('table');for(const[cell,value]of Object.entries(JSON.parse(occurrence.RawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));cells.append(tr)}item.append(cells);dup.append(item)}$('detail-body').append(dup);}$('detail-body').append(details);if(r.supplierProductId&&(r.codeKind==='InternalIdentity'||r.supplierName.includes('ENEOS'))){const sources=await json('/api/products/'+r.supplierProductId+'/source-inventory');const section=el('section');section.append(el('h3','同じ基準日の原本別在庫（数量は加算しません）'),el('p','一覧の数量：'+(sources.quantity??'不明')));for(const source of sources.sources)for(const evidence of source.rows)section.append(el('p',source.fileName+' / '+evidence.sheet+'!'+evidence.row+'：'+(evidence.inventory.quantity??'不明')+' / 原表記 '+(evidence.inventory.rawValue||'空欄')));$('detail-body').append(section);}$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',sourceSku(r)||'記載なし（内部IDで管理）'],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['年号の原表記',row.VintageRaw||'記載なし'],['希望小売の原表記',r.codeKind==='InternalIdentity'?'単位確認中（下記の原典価格を参照）':row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',r.codeKind==='InternalIdentity'?'記載なし':(row.OriginalSupplierProductCode||row.SupplierProductCode)],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',r.codeKind==='InternalIdentity'?'原典の商品表記を保持し、内部IDで対応付けています。':(row.Description||'記載なし')]])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl);if(r.codeKind==='InternalIdentity'||row.PriceComponents?.length)appendSourcePrices(row,r.codeKind==='InternalIdentity');if(row.DuplicateMinimumSelected){const dup=el('section');dup.append(el('h3','重複あり・少ない在庫を採用'),el('p','数量は加算していません。両方の原典行を保持しています。'));for(const occurrence of row.Occurrences||[]){const item=el('details');item.append(el('summary',occurrence.Sheet+'!'+occurrence.Row+'：'+occurrence.Inventory.Quantity+'本'+(occurrence.Row===row.SourceRow?'（採用）':'')));const cells=el('table');for(const[cell,value]of Object.entries(JSON.parse(occurrence.RawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));cells.append(tr)}item.append(cells);dup.append(item)}$('detail-body').append(dup);}$('detail-body').append(details);appendImporterEvidence($('detail-body'),r.importerEvidence);if(r.supplierProductId&&(r.codeKind==='InternalIdentity'||r.supplierName.includes('ENEOS'))){const sources=await json('/api/products/'+r.supplierProductId+'/source-inventory');const section=el('section');section.append(el('h3','同じ基準日の原本別在庫（数量は加算しません）'),el('p','一覧の数量：'+(sources.quantity??'不明')));for(const source of sources.sources)for(const evidence of source.rows)section.append(el('p',source.fileName+' / '+evidence.sheet+'!'+evidence.row+'：'+(evidence.inventory.quantity??'不明')+' / 原表記 '+(evidence.inventory.rawValue||'空欄')));$('detail-body').append(section);}$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
 function renderSelection() {
  const body=$('selected-rows');body.replaceChildren();
  $('selected-count').textContent=`${selectedProducts.size.toLocaleString()}件`;

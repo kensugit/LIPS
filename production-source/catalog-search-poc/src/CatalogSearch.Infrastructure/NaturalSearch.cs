@@ -111,14 +111,15 @@ public static class NaturalSearch
             parsed = true;
             return marker;
         });
-        text = Replace(text, @"(?:在庫あり(?:・少量)?|在庫がある|在庫のある|在庫有り?)(?:のみ|だけ)?", _ =>
+        text = Replace(text, "(?:" + CatalogSearchVocabulary.InStockPattern + @")(?!無|不明|りません|なし)(?:のみ|だけ)?", _ =>
         {
             filter = filter with { AvailableOnly = true };
             parsed = true;
             return marker;
         });
 
-        text = Replace(text, @"スパークリング(?:ワイン)?|(?:^|[\s\u001f、,]|の|で|と)(?:泡|発泡性ワイン)(?=の|で|を|と|[\s\u001f、,。]|$)", _ =>
+        text = Replace(text, @"(?<![a-z0-9])(?:" + CatalogSearchVocabulary.SparklingPattern +
+            @")(?![a-z0-9])|(?:^|[\s\u001f、,]|の|で|と)泡(?=の|で|を|と|[\s\u001f、,。]|$)", _ =>
         {
             sparkling = true;
             parsed = true;
@@ -127,6 +128,16 @@ public static class NaturalSearch
         text = Replace(text, @"シャンパーニュ(?:地方)?|シャンパン|(?<![a-z])champagne(?![a-z])", _ =>
         {
             champagne = true;
+            parsed = true;
+            return marker;
+        });
+
+        text = Replace(text, @"(?:^|[\s\u001f、,]|の|で|と)(?:年号(?:は|:)?\s*)?(?:" +
+            CatalogSearchVocabulary.NonVintagePattern + @")(?=の|で|ワイン|[\s\u001f、,。]|$)", _ =>
+        {
+            if (filter.VintageRaw is { } vintage && VintageNotation.Normalize(vintage) != "NV")
+                throw new ArgumentException("自由文と年号条件が異なります。年号を1つに揃えてください。");
+            filter = filter with { VintageRaw = "NV" };
             parsed = true;
             return marker;
         });
@@ -146,9 +157,10 @@ public static class NaturalSearch
             parsed = true;
             return marker;
         });
-        text = Replace(text, @"(?:タイプ(?:は|:)?\s*)?(?<type>赤|白|ロゼ|オレンジ)ワイン|(?:^|[\s\u001f、,]|の|で|と)(?:タイプ(?:は|:)?\s*)?(?<type>赤|白|ロゼ|オレンジ)(?=の|で|を|と|[\s\u001f、,。]|$)", m =>
+        text = Replace(text, @"(?:タイプ(?:は|:)?\s*)?(?<![a-z0-9])(?<alias>" + CatalogSearchVocabulary.ProductTypePattern +
+            @")(?![a-z0-9])|(?:^|[\s\u001f、,]|の|で|と)(?:タイプ(?:は|:)?\s*)?(?<type>赤|白|ロゼ|オレンジ)(?=の|で|を|と|[\s\u001f、,。]|$)", m =>
         {
-            var type = m.Groups["type"].Value;
+            var type = m.Groups["alias"].Success ? CatalogSearchVocabulary.ProductType(m.Groups["alias"].Value) : m.Groups["type"].Value;
             if (!string.IsNullOrEmpty(filter.ProductType) && filter.ProductType != type)
                 throw new ArgumentException("自由文とタイプの条件が異なります。タイプを1つに揃えてください。");
             filter = filter with { ProductType = type };

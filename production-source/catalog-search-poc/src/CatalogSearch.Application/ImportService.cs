@@ -38,6 +38,7 @@ public sealed record CatalogResult(string Sku, string ProductNameJa, string Prod
     decimal? ReferenceRetailPrice, bool TaxIncluded, InventoryStatus Inventory, int? Quantity,
     string SourceSheet, int SourceRow, Guid SourceDocumentId, string Country, string Region, string ProductType)
 {
+    public ImporterSearchEvidence? ImporterEvidence { get; init; }
     public bool AbundantInventory { get; init; }
     public Guid SupplierProductId { get; init; }
     public string CodeKind { get; init; } = "SupplierSku";

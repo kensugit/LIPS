@@ -18,6 +18,10 @@ builder.Services.AddHttpClient<IFreeTextInterpreter, LoopbackFreeTextInterpreter
     .ConfigurePrimaryHttpMessageHandler(()=>new SocketsHttpHandler { AllowAutoRedirect=false,UseProxy=false,UseCookies=false,ConnectTimeout=TimeSpan.FromSeconds(5) });
 builder.Services.AddScoped<IFreeTextSearchStore,DatabaseFreeTextSearchStore>();
 builder.Services.AddScoped<FreeTextSearchService>();
+builder.Services.AddHttpClient<ISemanticInterpreter, LoopbackSemanticInterpreter>(client => client.Timeout=Timeout.InfiniteTimeSpan)
+    .ConfigurePrimaryHttpMessageHandler(()=>new SocketsHttpHandler { AllowAutoRedirect=false,UseProxy=false,UseCookies=false,ConnectTimeout=TimeSpan.FromSeconds(5) });
+builder.Services.AddScoped<ISemanticSearchStore,DatabaseSemanticSearchStore>();
+builder.Services.AddScoped<SemanticSearchService>();
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
