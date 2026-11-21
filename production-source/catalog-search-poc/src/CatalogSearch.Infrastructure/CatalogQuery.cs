@@ -2,6 +2,7 @@ using CatalogSearch.Application;
 using CatalogSearch.Domain;
 using Microsoft.EntityFrameworkCore;
 using NpgsqlTypes;
+using System.Text.Json;
 namespace CatalogSearch.Infrastructure;
 public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentReader? enrichment = null, string? enrichmentVersion = null)
 {
@@ -19,6 +20,8 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
             (plan.Taste is not null && !WineTasteEvidence.Supports(plan.Taste)) ||
             (plan.Grape is not null && (!GrapeRegistry.TryGetAliases(plan.Grape.Name, out _) || plan.Grape.Mode is not ("contains" or "predominant"))))
             throw new ArgumentException("Invalid semantic predicate.");
+        if (plan.Jan is { } jan && (jan.Length is not (8 or 12 or 13 or 14) || !jan.All(char.IsAsciiDigit)))
+            throw new ArgumentException("Invalid JAN/GTIN predicate.");
         var supplier = await ResolveSupplierAsync(plan.SupplierCode, ct);
         var counters = new SemanticCounters();
         var rows = await SearchPlanAsync(new(plan.Filter with { Text = null, Region = null }, false, [], SupplierId: supplier),
@@ -116,6 +119,12 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
         if (natural.MaxExclusive) query = query.Where(x => x.CurrentPrice < filter.PriceMax);
         if (filter.AvailableOnly) query = query.Where(x => x.CurrentInventoryStatus == InventoryStatus.InStock || x.CurrentInventoryStatus == InventoryStatus.LowStock);
         if (filter.Text?.Length > 200) throw new ArgumentException("Search text is too long.");
+        if (semantic?.Jan is { } jan)
+        {
+            var payload = JsonSerializer.Serialize(new { JanCodes = new[] { jan } });
+            query = query.Where(x => db.ProductSearchDocuments.Any(d => d.EntityType == SearchEntityType.SupplierProduct &&
+                d.SourceRecordId == x.Id && EF.Functions.JsonContains(d.StructuredDataJson, payload)));
+        }
         var terms = literalTerms ?? SearchTerms.Parse(filter.Text);
         if (terms.Count > 20 || terms.Any(t => string.IsNullOrWhiteSpace(t) || t.Length > 200)) throw new ArgumentException("Invalid literal search terms.");
         foreach (var term in terms)

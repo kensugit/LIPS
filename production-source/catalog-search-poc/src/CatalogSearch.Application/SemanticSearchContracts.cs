@@ -22,6 +22,7 @@ public sealed record SemanticSearchPlan(CatalogFilter Filter, string? SupplierCo
     // Internal reviewed-geography expansion only; not part of the LLM wire schema.
     public IReadOnlyList<string> CountryAliases { get; init; } = [];
     public string? Taste { get; init; }
+    public string? Jan { get; init; }
     public bool Sparkling { get; init; }
     public void RequireExecutable()
     {

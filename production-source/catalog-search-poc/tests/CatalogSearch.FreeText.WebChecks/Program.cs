@@ -116,6 +116,27 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
       rightBank.Filter.Text?.Contains("右岸", StringComparison.Ordinal)==true &&
       !rightBank.Filter.Text.Contains("上代", StringComparison.Ordinal));
 }
+{
+ var options = new SemanticSearchOptions(["チリ", "フランス", "イタリア"],
+     [new("サンテミリオン","フランス"), new("フロンサック","フランス"), new("シャンパーニュ","フランス")],
+     ["白","赤","白泡"], [750,1500], ["2020","2021"], [], GrapeRegistry.Names);
+ var store = new VocabularyStore(new("composition-fixture", options) {
+     RegionPairs = [..options.Regions,new("ポムロール","フランス"),new("ポムロール","チリ")] });
+ var interpreter = new UnusedSemanticInterpreter();
+ var service = new SemanticSearchService(store, interpreter);
+ await service.SearchAsync(new("ボルドー右岸で上代10000円以内で在庫が有る赤ワイン"),default);
+ Need(store.LastPlan is { Filter: { Country: "フランス", ProductType: "赤", AvailableOnly: true, PriceMax: 10000 } }
+     && store.LastPlan.Regions.Contains("ポムロール") && store.LastPlan.Regions.Count == 3);
+ await service.SearchAsync(new("イタリアでサンジョヴェーゼ主体の在庫あり、3,000円以下"), default);
+ Need(store.LastPlan is { Filter: {Country:"イタリア", AvailableOnly:true, PriceMax:3000}, Grape:{Name:"サンジョベーゼ",Mode:"predominant"} });
+ await service.SearchAsync(new("ＪＡＮ ００００００００００００５、2020年750ml"), default);
+ Need(store.LastPlan is { Filter: {VintageRaw:"2020",VolumeMl:750}, Jan:"0000000000005" });
+ await service.SearchAsync(new("フランスの赤を3,000円以下で（画面では白を指定）", new(ProductType:"白")), default);
+ Need(store.LastPlan is {Filter:{Country:"フランス",ProductType:"白",PriceMax:3000}});
+ Need(interpreter.Calls==0);
+ Need(NaturalSearch.Parse(new(Text:"SKU-A2020年")).Filter.VintageRaw is null);
+ Need(NaturalSearch.Parse(new(Text:"2020年代")).Filter.VintageRaw is null);
+}
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{
  public List<string> Messages {get;}=[];

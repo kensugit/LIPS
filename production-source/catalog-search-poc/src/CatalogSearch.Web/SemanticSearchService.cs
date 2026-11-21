@@ -9,7 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CatalogSearch.Web;
 
-public sealed record SemanticCatalogSnapshot(string Version, SemanticSearchOptions Options);
+public sealed record SemanticCatalogSnapshot(string Version, SemanticSearchOptions Options)
+{
+    // The bridge registry requires unique names. Local geography can disambiguate exact country/name pairs.
+    public IReadOnlyList<SemanticRegionOption> RegionPairs { get; init; } = Options.Regions;
+}
 public sealed record SemanticUiResult(IReadOnlyList<CatalogResult> Rows, bool Capped, string CatalogVersion,
     string Mode, string? FallbackReason, object Conditions, ExplicitSearchUi ExplicitUi,
     IReadOnlyList<string> UnparsedTerms, IReadOnlyList<string> ClarificationReasons,
@@ -68,7 +72,12 @@ public sealed class DatabaseSemanticSearchStore(CatalogSearchDbContext db, IConf
                 promptVersion = SemanticSearchContract.PromptVersion, options, geography = ReviewedRightBankScope.Definition,
                 japaneseDictionary = JapaneseWineDictionary.Revision, searchVocabulary = CatalogSearchVocabulary.Revision,
                 aliases = GrapeRegistry.Names.Select(name => new { name, aliases = GrapeRegistry.TryGetAliases(name, out var values) ? values : [] }).ToArray() }, SemanticSearchContract.JsonOptions);
-            return new(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity))), options);
+            return new(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity))), options)
+            {
+                RegionPairs = pairs.Where(x => !string.IsNullOrWhiteSpace(x.Country) && !string.IsNullOrWhiteSpace(x.Region))
+                    .Select(x => new SemanticRegionOption(x.Region, x.Country))
+                    .OrderBy(r => r.Country, StringComparer.Ordinal).ThenBy(r => r.Name, StringComparer.Ordinal).ToArray()
+            };
         }
         public Task<SemanticCatalogSearchResult> SearchAsync(SemanticSearchPlan plan, CancellationToken ct) => new CatalogQuery(db, enrichment, extractorVersion).SearchSemanticAsync(plan, ct);
         public ValueTask DisposeAsync() => tx.DisposeAsync();
@@ -202,12 +211,12 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
             var current = await read.SnapshotAsync(ct);
             if (current.Version != initial.Version) return Clarify("catalog_changed");
             if (JsonSerializer.Serialize(current.Options, SemanticSearchContract.JsonOptions) != JsonSerializer.Serialize(initial.Options, SemanticSearchContract.JsonOptions)) return Clarify("catalog_changed");
-            var executionPlan = geographyBinding is null ? accepted with { CountryAliases = dictionary?.Countries ?? ItalyAliases(accepted.Filter.Country, current.Options) } : accepted with {
+            var executionPlan = geographyBinding is null ? accepted with { CountryAliases = dictionary?.Countries ?? (accepted.CountryAliases.Count > 0 ? accepted.CountryAliases : ItalyAliases(accepted.Filter.Country, current.Options)) } : accepted with {
                 CountryAliases = geographyBinding.RawCountries ?? [],
                 Regions = accepted.Regions.SelectMany(r => geographyBinding.RawAliases![r]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray() };
             var result = await read.SearchAsync(executionPlan, ct);
             return new(result.Items, result.Items.Count == ui.Limit, fallbackReason is null ? interpretedVersion : current.Version, fallbackReason is null ? "model" : "rules", fallbackReason,
-                new { filter = accepted.Filter, supplier = accepted.SupplierCode, regions = dictionary?.PlaceLabel is { } place ? new[] { place } : accepted.Regions, grape = accepted.Grape, taste = accepted.Taste, sparkling = accepted.Sparkling, keywords = accepted.Keywords,
+                new { filter = accepted.Filter, supplier = accepted.SupplierCode, regions = dictionary?.PlaceLabel is { } place ? new[] { place } : accepted.Regions, grape = accepted.Grape, taste = accepted.Taste, sparkling = accepted.Sparkling, jan = accepted.Jan, keywords = accepted.Keywords,
                     geographyUnmappedRegionCount = geographyBinding?.UnmappedRegionCount,
                     geographyCoverage = dictionary?.PlaceLabel is not null ? "辞書で照合できた登録産地のみを対象としています。" :
                         ReviewedRightBankScope.Requested(input.Query) ? (ui.Region is not null ? "画面で明示した産地を優先しています。" : ReviewedRightBankScope.CoverageNotice) : null },
@@ -236,6 +245,16 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
             };
             return await Execute(dictionaryPlan, "dictionary_match", dictionary);
         }
+        var geographyOptions = initial.Options with { Regions = initial.RegionPairs };
+        if (ReviewedRightBankScope.Requested(input.Query) && string.IsNullOrWhiteSpace(ui.Region))
+        {
+            var resolved = ReviewedRightBankScope.Bind(input.Query, geographyOptions, ui.Country);
+            if (resolved.Errors.Count != 0) return Clarify("semantic_conditions_unresolved", reasons: resolved.Errors);
+            geographyBinding = resolved;
+        }
+        if (ComposedSearchRules.Interpret(input.Query, ui, initial, geographyBinding) is { } composed)
+            return await Execute(composed, "dictionary_match");
+
         if (JapaneseWineDictionary.MentionsTaste(input.Query)) return Clarify("dictionary_taste_not_bound");
         var mentionedGrapes = GrapeRegistry.MentionedNames(input.Query.Normalize(NormalizationForm.FormKC));
         if (mentionedGrapes.Length == 0 && SemanticIntentCoverage.TryRulesFallback(input.Query, ui, initial) is { } exactRules)
@@ -243,11 +262,8 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
         if (mentionedGrapes.Length > 1) return Clarify("dictionary_multiple_grapes");
         interpretationOptions = interpretationOptions with { Grapes = mentionedGrapes };
         SemanticSearchRequest request; SemanticSearchInterpretation response; SemanticSearchPlan plan;
-        if (ReviewedRightBankScope.Requested(input.Query) && string.IsNullOrWhiteSpace(ui.Region))
+        if (geographyBinding is { } binding)
         {
-            var binding = ReviewedRightBankScope.Bind(input.Query, initial.Options, ui.Country);
-            if (binding.Errors.Count != 0) return Clarify("semantic_conditions_unresolved", reasons: binding.Errors);
-            geographyBinding = binding;
             interpretationOptions = initial.Options with {
                 Countries = binding.Regions.Select(r => r.Country).Distinct(StringComparer.Ordinal).ToArray(),
                 Regions = binding.Regions };
@@ -263,7 +279,7 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
         }
         catch (BridgeFailure ex) { return await Fallback(ex.Reason); }
         catch (Exception ex) when (ex is ArgumentException or JsonException) { return await Fallback("semantic_interpretation_invalid"); }
-        var coverage = SemanticIntentCoverage.Check(input.Query, ui, plan, initial.Options);
+        var coverage = SemanticIntentCoverage.Check(input.Query, ui, plan, geographyOptions);
         if (mentionedGrapes.Length == 1 && plan.Grape?.Name != mentionedGrapes[0])
             return Clarify("semantic_conditions_unresolved", plan, coverage.Append("explicit_grape_not_adopted").Distinct().ToArray());
         if (plan.NeedsClarification || coverage.Count != 0) return Clarify("semantic_conditions_unresolved", plan, coverage.Concat(plan.NeedsClarification ? new[] { "unparsed_terms" } : []).ToArray());

@@ -70,6 +70,7 @@ function adoptedConditions(conditions) {
  if(c.keywords?.length)parts.push('キーワード：'+c.keywords.join(' '));
  if(c.regions?.length)parts.push('産地（いずれか）：'+c.regions.join(' / '));
  if(c.geographyCoverage)parts.push(c.geographyCoverage);
+ if(c.jan)parts.push('JAN/GTIN：'+c.jan);
  if(c.grape)parts.push('品種：'+c.grape.name+(c.grape.mode==='predominant'?'（過半または主体の根拠あり）':'（含有の根拠あり）'));
  if(c.taste)parts.push('味わい：'+c.taste+'（原本の記載）');
  if(c.sparkling)parts.push('発泡タイプ：スパークリング');
