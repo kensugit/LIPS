@@ -12,14 +12,37 @@ internal static class ComposedSearchRules
     private static readonly Regex Jan = new(@"(?<![a-z0-9])(?:JAN(?:コード)?|GTIN)\s*[:：]?\s*(?<code>\d{8}|\d{12,14})(?!\d)", Flags, Timeout);
     private static readonly Regex ScreenColor = new(@"\s*\(画面では(?<color>赤|白|ロゼ|オレンジ)(?:ワイン)?を指定\)\s*$", Flags, Timeout);
     private static readonly Regex RightBank = new(@"(?:ボルドー|Bordeaux)\s*(?:の)?右岸", Flags, Timeout);
-    private static readonly Regex Unsupported = new(@"税込|卸価格|仕入(?:れ)?価格|納入価格|納価|以外|除く|ではない|ではなく|または|もしくは|あるいは|左岸|\bor\b", Flags, Timeout);
+    private const string Alternative = @"(?:または|もしくは|あるいは|\bor\b)";
+    private const string ClaimEnd = @"(?=$|[\s、,。]|の|で|かつ|赤|白|ロゼ|オレンジ)";
+    private static readonly Regex Unsupported = new(@"税込|卸価格|仕入(?:れ)?価格|納入価格|納価|以外|除く|除外|ではない|ではなく|含まない|含まず|不使用|\bwithout\b|\bnot\b|左岸|" + Alternative, Flags, Timeout);
+
+    // Only an adjacent alias pair with one shared explicit predicate may collapse.
+    // Never erase an OR across countries, prices, stock, different grapes or clauses.
+    private static string CollapseEquivalentGrapeAlternative(string text)
+    {
+        foreach (var name in GrapeRegistry.MentionedNames(text))
+        {
+            if (!GrapeRegistry.TryGetAliases(name, out var aliases)) continue;
+            var alias = "(?:" + string.Join("|", aliases.OrderByDescending(a => a.Length).Select(Regex.Escape)) + ")";
+            var pair = new Regex(@"(?<![a-z0-9])" + alias + @"(?![a-z0-9])\s*" + Alternative +
+                @"\s*" + alias + @"(?![a-z0-9])(?=\s*(?:が\s*)?(?:主体|を含む)" + ClaimEnd + ")", Flags, Timeout);
+            text = pair.Replace(text, name);
+        }
+        return text;
+    }
+
+    public static bool RequiresClarification(string query)
+    {
+        try { return Unsupported.IsMatch(CollapseEquivalentGrapeAlternative(query.Normalize(NormalizationForm.FormKC))); }
+        catch (Exception e) when (e is ArgumentException or RegexMatchTimeoutException) { return true; }
+    }
 
     public static SemanticSearchPlan? Interpret(string query, ExplicitSearchUi ui, SemanticCatalogSnapshot snapshot,
         ReviewedRightBankScope.Binding? bank)
     {
         try
         {
-            var text = query.Normalize(NormalizationForm.FormKC);
+            var text = CollapseEquivalentGrapeAlternative(query.Normalize(NormalizationForm.FormKC));
             if (Unsupported.IsMatch(text)) return null;
             var screen = ScreenColor.Match(text);
             if (screen.Success && ui.ProductType == screen.Groups["color"].Value) text = text[..screen.Index];
@@ -46,7 +69,7 @@ internal static class ComposedSearchRules
                 if (!GrapeRegistry.TryGetAliases(name, out var aliases)) continue;
                 var aliasPattern = string.Join("|", aliases.OrderByDescending(a => a.Length).Select(Regex.Escape));
                 var pattern = new Regex(@"(?<![a-z0-9])(?:" + aliasPattern +
-                    @")(?![a-z0-9])\s*(?:が\s*)?(?<mode>主体|を含む)(?=$|[\s、,。]|の|で|かつ)", Flags, Timeout);
+                    @")(?![a-z0-9])\s*(?:が\s*)?(?<mode>主体|を含む)" + ClaimEnd, Flags, Timeout);
                 var claims = pattern.Matches(text);
                 if (claims.Count == 0) continue;
                 if (claims.Count != 1 || grape is not null) return null;

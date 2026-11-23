@@ -255,6 +255,8 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
         if (ComposedSearchRules.Interpret(input.Query, ui, initial, geographyBinding) is { } composed)
             return await Execute(composed, "dictionary_match");
 
+        if (ComposedSearchRules.RequiresClarification(input.Query)) return Clarify("unsupported_condition_logic");
+
         if (JapaneseWineDictionary.MentionsTaste(input.Query)) return Clarify("dictionary_taste_not_bound");
         var mentionedGrapes = GrapeRegistry.MentionedNames(input.Query.Normalize(NormalizationForm.FormKC));
         if (mentionedGrapes.Length == 0 && SemanticIntentCoverage.TryRulesFallback(input.Query, ui, initial) is { } exactRules)
@@ -266,7 +268,7 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
         {
             interpretationOptions = initial.Options with {
                 Countries = binding.Regions.Select(r => r.Country).Distinct(StringComparer.Ordinal).ToArray(),
-                Regions = binding.Regions };
+                Regions = binding.Regions, Grapes = mentionedGrapes };
             interpretedVersion = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new {
                 schema = "semantic-scoped-request/v1", sourceVersion = initial.Version,
                 scope = ReviewedRightBankScope.Definition, binding, options = interpretationOptions }, SemanticSearchContract.JsonOptions)));

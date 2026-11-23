@@ -139,6 +139,50 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  Need(NaturalSearch.Parse(new(Text:"SKU-A2020年")).Filter.VintageRaw is null);
  Need(NaturalSearch.Parse(new(Text:"2020年代")).Filter.VintageRaw is null);
 }
+{
+ var options = new SemanticSearchOptions(["フランス","イタリア"],
+     [new("サンテミリオン","フランス"),new("ポムロール","フランス"),new("フロンサック","フランス")],
+     ["白","赤"],[],[],[],GrapeRegistry.Names);
+ var local = new VocabularyStore(new("synonym-fixture",options));
+ var unused = new UnusedSemanticInterpreter();
+ var service = new SemanticSearchService(local,unused);
+ foreach(var alias in new[]{"ピノ・グリ","ピノグリ","Pinot Gris","ピノ・グリージョ","ピノグリージョ","Pinot Grigio"}) {
+  await service.SearchAsync(new(alias+"を含む白ワイン"),default);
+  Need(local.LastPlan is {Filter:{ProductType:"白"},Grape:{Name:"ピノ・グリ",Mode:"contains"}});
+ }
+ foreach(var query in new[]{"ピノグリもしくはピノグリージョを含む白ワイン",
+     "ピノグリージョまたはピノグリを含む白ワイン", "Pinot Gris or Pinot Grigio を含む白ワイン",
+     "ピノ・グリあるいはピノ・グリージョを含む白ワイン"}) {
+  var result=await service.SearchAsync(new(query),default);
+  Need(result.Mode=="rules" && local.LastPlan is {Filter:{ProductType:"白"},Grape:{Name:"ピノ・グリ",Mode:"contains"},Keywords.Count:0});
+  Need(SemanticGrapeMatcher.Match("Pinot Grigio 20%",local.LastPlan!.Grape!).Included);
+  Need(!SemanticGrapeMatcher.Match(null,local.LastPlan.Grape!).Included);
+ }
+ await service.SearchAsync(new("ピノグリもしくはピノグリージョ主体の白ワイン"),default);
+ Need(local.LastPlan is {Grape:{Name:"ピノ・グリ",Mode:"predominant"}});
+ Need(!SemanticGrapeMatcher.Match("Pinot Grigio 50%",local.LastPlan!.Grape!).Included);
+ Need(SemanticGrapeMatcher.Match("Pinot Grigio 51%",local.LastPlan.Grape!).Included);
+ await service.SearchAsync(new("イタリアでピノグリもしくはピノグリージョを含む白ワインで上代3000円以内で在庫あり"),default);
+ Need(local.LastPlan is {Filter:{Country:"イタリア",ProductType:"白",PriceMax:3000,AvailableOnly:true},Grape:{Mode:"contains"}});
+ await service.SearchAsync(new("ピノグリもしくはピノグリージョを含む白ワイン",new(ProductType:"赤",PriceMax:2000)),default);
+ Need(local.LastPlan is {Filter:{ProductType:"赤",PriceMax:2000},Grape:{Name:"ピノ・グリ",Mode:"contains"}});
+ foreach(var query in new[]{"ピノグリまたはシャルドネを含む白ワイン","ピノグリとシャルドネを含む白ワイン",
+     "ピノグリかつシャルドネを含む白ワイン","ピノグリを含む白ワインまたは在庫あり",
+     "フランスまたはイタリアのピノグリを含む白ワイン","ピノグリを含む白ワインで3000円以下または在庫あり",
+     "ピノグリージョを含まない白ワイン","ピノグリ以外の白ワイン","ピノグリ不使用の白ワイン",
+     "ピノグリもしくはピノグリージョまたはピノグリを含む白ワイン"}) {
+  var before=local.SearchCalls;var result=await service.SearchAsync(new(query),default);
+  Need(result.Mode=="needsClarification" && local.SearchCalls==before);
+ }
+ Need(unused.Calls==0);
+ foreach(var (query,known) in new[]{("ボルドー右岸のピノグリージョでおすすめの白ワイン",true),
+     ("ボルドー右岸で珍しい品種の白ワイン",false),("珍しい品種の白ワイン",false)}) {
+  var capture=new GrapeScopeInterpreter();var scoped=new VocabularyStore(new("scoped-synonym",options));
+  var result=await new SemanticSearchService(scoped,capture).SearchAsync(new(query),default);
+  Need(capture.Request is not null && capture.Request.Options.Grapes.SequenceEqual(known?new[]{"ピノ・グリ"}:Array.Empty<string>()));
+  Need(known?result.Mode=="model" && scoped.LastPlan!.Regions.Count==3:result.Mode=="needsClarification" && scoped.SearchCalls==0);
+ }
+}
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{
  public List<string> Messages {get;}=[];
@@ -149,14 +193,25 @@ sealed class CaptureLogger:ILogger<FreeTextSearchService>{
 sealed class VocabularyStore(SemanticCatalogSnapshot snapshot):ISemanticSearchStore, ISemanticSearchRead
 {
  public SemanticSearchPlan? LastPlan {get;private set;}
+ public int SearchCalls {get;private set;}
  public Task<SemanticCatalogSnapshot> SnapshotAsync(CancellationToken ct) => Task.FromResult(snapshot);
  public Task<ISemanticSearchRead> BeginReadAsync(CancellationToken ct) => Task.FromResult<ISemanticSearchRead>(this);
  public Task<SemanticCatalogSearchResult> SearchAsync(SemanticSearchPlan plan,CancellationToken ct)
  {
-  LastPlan=plan;
+  SearchCalls++;LastPlan=plan;
   return Task.FromResult(new SemanticCatalogSearchResult([],0,0,true));
  }
  public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+sealed class GrapeScopeInterpreter:ISemanticInterpreter
+{
+ public bool Enabled=>true;
+ public SemanticSearchRequest? Request {get;private set;}
+ public Task<SemanticSearchInterpretation> InterpretAsync(SemanticSearchRequest request,CancellationToken ct) {
+  Request=request;
+  return Task.FromResult(new SemanticSearchInterpretation(SemanticSearchContract.Schema,request.RequestId,request.CatalogVersion,
+   request.PromptVersion,"synthetic","stub",new([],null,"フランス",request.Options.Regions.Select(r=>r.Name).ToArray(),"白",null,null,null,null,null,new("ピノ・グリ","contains")),[]));
+ }
 }
 sealed class UnusedSemanticInterpreter:ISemanticInterpreter
 {

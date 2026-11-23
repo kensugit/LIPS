@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace CatalogSearch.Application;
 
@@ -81,6 +82,8 @@ public sealed record ImporterSearchEvidence(string SourceUrl, DateTimeOffset Fet
 
 public static class SemanticGrapeMatcher
 {
+    private static readonly Regex EnglishNegation = new(@"\b(?:not|without)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(50));
     public static string? ReadOriginal(string json)
     {
         if (json.Length > 262144) return null;
@@ -130,7 +133,8 @@ public static class SemanticGrapeMatcher
             .Split([',', '、', ';', '/'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length <= 20 && parts.All(p => p.Length <= 100 && !p.Any(char.IsControl) &&
             !p.Any(c => char.IsDigit(c) || c is '%' or '：' or ':') &&
-            !new[] { "不使用", "なし", "無し", "以外", "除く", "ない", "主体", "not ", "without " }.Any(w => p.Contains(w, StringComparison.OrdinalIgnoreCase))) &&
+            !new[] { "不使用", "なし", "無し", "以外", "除く", "ない", "主体" }.Any(w => p.Contains(w, StringComparison.OrdinalIgnoreCase)) &&
+            !EnglishNegation.IsMatch(p)) &&
             parts.Any(p => aliases.Contains(p, StringComparer.OrdinalIgnoreCase))) return new(true, "EXPLICIT_GRAPE_LIST");
         return new(false, "GRAPE_EVIDENCE_INSUFFICIENT");
     }
