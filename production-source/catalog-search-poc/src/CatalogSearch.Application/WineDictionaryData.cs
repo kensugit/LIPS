@@ -8,7 +8,7 @@ namespace CatalogSearch.Application;
 internal sealed record WineDictionaryPlace(string Label, string[] Countries, string[] Names, string[] Members);
 
 internal sealed record WineDictionaryData(int Version, Dictionary<string, string[]> Grapes, WineDictionaryPlace[] Places,
-    string[] Sweetness, Dictionary<string, string[]> Flavors)
+    string[] Sweetness, Dictionary<string,string[]> SweetnessAliases, Dictionary<string, string[]> Flavors)
 {
     internal static WineDictionaryData Current { get; }
     internal static string Revision { get; }
@@ -62,6 +62,13 @@ internal sealed record WineDictionaryData(int Version, Dictionary<string, string
             data.Flavors.Any(f => !Text(f.Key) || !Names(f.Value, 20)) ||
             data.Flavors.Keys.Intersect(data.Sweetness, StringComparer.Ordinal).Any())
             throw new InvalidDataException("Wine dictionary validation failed.");
+        if(data.SweetnessAliases is null || !data.SweetnessAliases.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(data.Sweetness) ||
+            data.SweetnessAliases.Any(pair=>!Names(pair.Value,20)||!pair.Value.Contains(pair.Key,StringComparer.Ordinal)))
+            throw new InvalidDataException("Wine dictionary sweetness aliases are invalid.");
+        var tasteOwners=data.SweetnessAliases.SelectMany(pair=>pair.Value.Select(alias=>(Alias:alias.Normalize(NormalizationForm.FormKC),Name:pair.Key))).ToArray();
+        if(tasteOwners.GroupBy(pair=>pair.Alias,StringComparer.OrdinalIgnoreCase).Any(group=>group.Count()!=1)||
+            tasteOwners.Any(pair=>data.Flavors.Keys.Concat(data.Flavors.Values.SelectMany(v=>v)).Any(flavor=>flavor.Normalize(NormalizationForm.FormKC).Equals(pair.Alias,StringComparison.OrdinalIgnoreCase))))
+            throw new InvalidDataException("Wine dictionary sweetness aliases are ambiguous.");
         var aliasOwners = data.Grapes.SelectMany(g => g.Value.Select(a => (Key: GrapeKey(a), Name: g.Key)))
             .GroupBy(a => a.Key, StringComparer.OrdinalIgnoreCase);
         if (aliasOwners.Any(g => g.Key.Length == 0 || g.Select(a => a.Name).Distinct(StringComparer.Ordinal).Count() != 1))

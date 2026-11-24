@@ -18,9 +18,10 @@ public sealed class ImporterPageAdapterPolicy
     readonly IImporterProductPageAdapter defaultAdapter = new JsonLdAdapter();
     public string Version { get; }
     public ImporterPageAdapterPolicy(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? reviewedJetSuppliers = null,
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, YourCellarProductPageIdentity.ProducerRule>>? reviewedYourCellarSuppliers = null)
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, YourCellarProductPageIdentity.ProducerRule>>? reviewedYourCellarSuppliers = null,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string,string>>? reviewedToyotsuSuppliers = null)
     {
-        if ((reviewedJetSuppliers?.Count ?? 0) + (reviewedYourCellarSuppliers?.Count ?? 0) > 100) throw new ArgumentException("ADAPTER_POLICY_INVALID");
+        if ((reviewedJetSuppliers?.Count ?? 0) + (reviewedYourCellarSuppliers?.Count ?? 0) + (reviewedToyotsuSuppliers?.Count ?? 0) > 100) throw new ArgumentException("ADAPTER_POLICY_INVALID");
         foreach (var pair in reviewedJetSuppliers ?? new Dictionary<string, IReadOnlyDictionary<string, string>>())
         {
             if (!ImporterEvidenceValidator.ValidText(pair.Key,100) || pair.Value is null ||
@@ -30,6 +31,11 @@ public sealed class ImporterPageAdapterPolicy
         {
             if (!ImporterEvidenceValidator.ValidText(pair.Key,100) || pair.Value is null ||
                 !overrides.TryAdd(pair.Key, new YourCellarAdapter(pair.Key, pair.Value))) throw new ArgumentException("ADAPTER_POLICY_INVALID");
+        }
+        foreach (var pair in reviewedToyotsuSuppliers ?? new Dictionary<string,IReadOnlyDictionary<string,string>>())
+        {
+            if (!ImporterEvidenceValidator.ValidText(pair.Key,100) || pair.Value is null ||
+                !overrides.TryAdd(pair.Key,new ToyotsuAdapter(pair.Key,pair.Value))) throw new ArgumentException("ADAPTER_POLICY_INVALID");
         }
         // Preserve existing JSON-LD-only policy identity. Mixed policies invalidate all earlier cache generations by version.
         Version = overrides.Count == 0 ? defaultAdapter.Version : "official-product-adapters/1+" +
@@ -60,5 +66,12 @@ public sealed class ImporterPageAdapterPolicy
         public string Version => inner.Version;
         public bool TryExtract(ImporterProductIdentity i,string url,ReadOnlyMemory<byte> body,out IReadOnlyList<ImporterGrapeEvidence> grapes) => inner.TryExtract(i,url,body,out grapes);
         public bool Verify(ImporterProductIdentity i,IReadOnlyList<ImporterGrapeEvidence> grapes,string url,ReadOnlyMemory<byte> body) => inner.Verify(i,grapes,url,body);
+    }
+    sealed class ToyotsuAdapter(string supplier,IReadOnlyDictionary<string,string> producers) : IImporterProductPageAdapter
+    {
+        readonly ToyotsuProductPageIdentity inner = new(supplier,producers);
+        public string Version => inner.Version;
+        public bool TryExtract(ImporterProductIdentity i,string url,ReadOnlyMemory<byte> body,out IReadOnlyList<ImporterGrapeEvidence> grapes)=>inner.TryExtract(i,url,body,out grapes);
+        public bool Verify(ImporterProductIdentity i,IReadOnlyList<ImporterGrapeEvidence> grapes,string url,ReadOnlyMemory<byte> body)=>inner.Verify(i,grapes,url,body);
     }
 }

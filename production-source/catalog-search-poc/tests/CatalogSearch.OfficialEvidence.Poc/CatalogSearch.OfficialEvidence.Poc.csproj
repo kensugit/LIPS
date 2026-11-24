@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/CatalogSearch.Infrastructure/CatalogSearch.Infrastructure.csproj" /><EmbeddedResource Include="../CatalogSearch.Domain.Tests/Fixtures/Toyotsu/*.html" LogicalName="Toyotsu.%(Filename)%(Extension)" /></ItemGroup></Project>

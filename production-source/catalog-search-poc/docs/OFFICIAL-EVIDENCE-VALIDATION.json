@@ -1,0 +1,202 @@
+{
+  "schema": "lips-official-evidence-validation/v1",
+  "baseCommit": "db533dbacd2555635d4abe44c8c33244479c04af",
+  "status": "offline_candidate_pending_independent_QA",
+  "files": [
+    {
+      "path": "production-source/catalog-search-poc/CODEX-HANDOFF.md",
+      "bytes": 131038,
+      "sha256": "cc4342e30cbff93f4836c825c6f8d69a65374f13f7daad26fabb271cf20469b7"
+    },
+    {
+      "path": "production-source/catalog-search-poc/docs/OFFICIAL-EVIDENCE-POC-RESULT.json",
+      "bytes": 1804,
+      "sha256": "b7c60732df069e20b72c4bd2b5762ab97b4ba18f508ba753e1bd26110fed5a85"
+    },
+    {
+      "path": "production-source/catalog-search-poc/docs/OFFICIAL-EVIDENCE-POC.md",
+      "bytes": 6477,
+      "sha256": "7967cbd33067c04d729dbbc347d0e664b9015c97bd3aff4ef794fb9d3bcb61a8"
+    },
+    {
+      "path": "production-source/catalog-search-poc/docs/TOYOTSU-ADAPTER-VALIDATION.json",
+      "bytes": 1868,
+      "sha256": "ae8b86d29f104812462b60ccb6d9adf7233b4b61c2bfb724e71354f52006e1ed"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/Dictionaries/wine-search.ja.json",
+      "bytes": 32219,
+      "sha256": "fbdf314ec7f2e26404cc64460656472398dcead7ddaa8470da6271aac4e2dcf7"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/ImporterPageAdapters.cs",
+      "bytes": 5987,
+      "sha256": "11ad5b8f6efe202ab2ebeb9c53d8b5acdd4b81a3775ca4958ceff170378df45e"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/JapaneseWineDictionary.cs",
+      "bytes": 5835,
+      "sha256": "06826009f1b9879cf253b72a61de7fcdc99249c34158d84797b82bfdf1d4da01"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/ToyotsuProductPageIdentity.cs",
+      "bytes": 12861,
+      "sha256": "86fde80f7c19e5d27c0acee023f39640812bb7004ae984b54abcddd5e433368e"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/WineDictionaryData.cs",
+      "bytes": 5572,
+      "sha256": "314882eb64e3870fb27f8279238c00de9697e1c91c7dd7f54bcc9814f8065624"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/WineTasteEvidence.cs",
+      "bytes": 6481,
+      "sha256": "2a4f884cf954c7549bf73f72d2167b9d3d52a2185ca6229fe3aa09e535562835"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Application/WineTasteVocabulary.cs",
+      "bytes": 798,
+      "sha256": "fef6c14135801dd95e4206fdc3402bd110644b7a711a3c6913f87c6d36f837e2"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.EnrichmentCli/Program.cs",
+      "bytes": 18129,
+      "sha256": "704e8c0b1ca73638c7c8d8914caab58808db19b6e90d014390b454a47c3aef5b"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.EnrichmentCli/tests/PolicyV3Tests.cs",
+      "bytes": 2796,
+      "sha256": "73caab9734284f46a6da699f3f24071b83977432c4b92391630064dbbf665e14"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Infrastructure/CatalogQuery.cs",
+      "bytes": 16513,
+      "sha256": "27d1af6881b7cf04f4c186d6a7cabc844fa4dcb15ee1000aa0d297c91a9bc852"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Infrastructure/ImporterEnrichmentAcquisition.cs",
+      "bytes": 4985,
+      "sha256": "386b2e6f9a8a4926fb1a9e46c8382822be576270cd2fd5b56c6e1eb94b01b1a2"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Infrastructure/RoutedImporterEnrichmentReader.cs",
+      "bytes": 2867,
+      "sha256": "ef8257464d88164ffccb2d77ede3d0d7d6fe03f5a84804a67ba607c5084fc815"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Web/ImporterEnrichmentReaderConfiguration.cs",
+      "bytes": 2964,
+      "sha256": "8e4be05a1bb0c8b6b8465cd6e86012146e4db39cd9c724b8a81a2c622910c8ad"
+    },
+    {
+      "path": "production-source/catalog-search-poc/src/CatalogSearch.Web/SemanticSearchService.cs",
+      "bytes": 22156,
+      "sha256": "e899a6e1e6ba9f2a03618e4f325018ebcb027d6acf8c4d844ef3ea6c7c60bc9d"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/CatalogSearch.Domain.Tests.csproj",
+      "bytes": 579,
+      "sha256": "52d68789225925a9a7cbe041d1ceca386bb4a1134a9366b04db9382098b5adbe"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/Fixtures/Toyotsu/FE4113.min.html",
+      "bytes": 983,
+      "sha256": "56adae000643dce19e728882973a6067696948feb2d21ee111d9757026d9e678"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/Fixtures/Toyotsu/FE4218.min.html",
+      "bytes": 807,
+      "sha256": "9bc98b40a0747edc5c6b626c128c4ebc2c522222494814b51c59d6dbd6ad1aab"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/Fixtures/Toyotsu/PROVENANCE.json",
+      "bytes": 923,
+      "sha256": "c771f19a48d8284a2628c6c27f5a1ff8a8aff1577d85cfb93e5fe2acb06d9a2b"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/RoutedImporterEnrichmentReaderTests.cs",
+      "bytes": 4258,
+      "sha256": "40035c65ab94940680b445c9996d7d71d05e505e78a68da2ac4cb53a515d4a05"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/ToyotsuAcquisitionTests.cs",
+      "bytes": 2790,
+      "sha256": "caefb82a08e05da6fccc03c5a4ada90174c116f0d6d70155257f3dc6ee232d6d"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/ToyotsuProductPageIdentityTests.cs",
+      "bytes": 5187,
+      "sha256": "a48c5fa7b278999f3ea93d7f490c3343f6acd7daebc12b404ae41edc2728f5be"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/WineTasteEvidenceTests.cs",
+      "bytes": 4465,
+      "sha256": "92cfacfccbe31c0d3fe58d4bd7c6ace3778e57908ff19671b5e89b9c4e8cb418"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Domain.Tests/WineTasteVocabularyTests.cs",
+      "bytes": 2119,
+      "sha256": "df6d2dad6967f4f3ff80116b1c7eb9472db73effd51f03759600bda807f9709d"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.FreeText.WebChecks/Program.cs",
+      "bytes": 22427,
+      "sha256": "13f59a25a11853176d15d2759855e875eb31f7649be56813d4d8cff05eb35380"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.OfficialEvidence.Poc/CatalogSearch.OfficialEvidence.Poc.csproj",
+      "bytes": 361,
+      "sha256": "8057cdb632623d635f72cb4eea0a133f328b7697173e3fc33649c78bd428ea0d"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.OfficialEvidence.Poc/Program.cs",
+      "bytes": 7784,
+      "sha256": "6c9e5f946a18fe4b308b77d48c8f88c2c5fa45b643f67df81aa4090fc870b64b"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Toyotsu.ObservedChecks/CatalogSearch.Toyotsu.ObservedChecks.csproj",
+      "bytes": 225,
+      "sha256": "bc4da839b1ce46eca01b488a904cc76f3a5f3f90be4ff71982e19462b159d545"
+    },
+    {
+      "path": "production-source/catalog-search-poc/tests/CatalogSearch.Toyotsu.ObservedChecks/Program.cs",
+      "bytes": 1766,
+      "sha256": "7b4f520032b6809af8f521aff75f4a01e6a9509315e1aff78aac7ac24124e0e2"
+    }
+  ],
+  "tests": {
+    "domainFocused": 138,
+    "cliV2V3": 21,
+    "webServiceChecks": 108,
+    "observedFullHtml": 2,
+    "pocAcquisitionWriterReaderMatcher": 2
+  },
+  "actualDatabaseCalls": 0,
+  "httpCalls": 0,
+  "productionCacheWrites": 0,
+  "limits": [
+    "SQL CatalogQuery official OFF/ON delegated to independent QA",
+    "actualSupplierCode and productionSourceFingerprint unverified",
+    "fixed12 comparison separate",
+    "PoC local timestamps synthetic; no live freshness proof",
+    "official taste enrichment not implemented"
+  ],
+  "sweetnessAliases": {
+    "\u6975\u7518\u53e3": [
+      "\u6975\u7518\u53e3"
+    ],
+    "\u3084\u3084\u7518\u53e3": [
+      "\u3084\u3084\u7518\u53e3",
+      "\u534a\u7518\u53e3"
+    ],
+    "\u7518\u53e3": [
+      "\u7518\u53e3"
+    ],
+    "\u3084\u3084\u8f9b\u53e3": [
+      "\u3084\u3084\u8f9b\u53e3"
+    ],
+    "\u8f9b\u53e3": [
+      "\u8f9b\u53e3"
+    ]
+  }
+}

@@ -40,6 +40,7 @@ public sealed class ImporterEnrichmentAcquisition(IOfficialImporterPageFetcher f
 
     public static bool HasConflict(IReadOnlyList<string> original, IReadOnlyList<ImporterGrapeEvidence> supplied)
     {
+        if(HasExclusiveCompositionConflict(original,supplied))return true;
         foreach (var name in GrapeRegistry.Names)
         {
             GrapeRegistry.TryGetAliases(name, out var aliases);
@@ -50,6 +51,23 @@ public sealed class ImporterEnrichmentAcquisition(IOfficialImporterPageFetcher f
             var after = GrapeEvidence.FromGrapes(afterRows[0].SourceExcerpt, aliases);
             if (before.ExplicitPercent is { } a && after.ExplicitPercent is { } b && a != b) return true;
             if (before.Included && after.ExplicitPercent <= 50 || after.Included && before.ExplicitPercent <= 50) return true;
+        }
+        return false;
+    }
+    public static bool HasExclusiveCompositionConflict(IReadOnlyList<string> original,IReadOnlyList<ImporterGrapeEvidence> supplied)
+    {
+        // A plain list is not complete composition. Only explicit100% excludes another explicit100%.
+        var before=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var name in GrapeRegistry.Names)
+        {
+            GrapeRegistry.TryGetAliases(name,out var aliases);
+            if(GrapeEvidence.FromGrapes(string.Join(",",original),aliases).ExplicitPercent==100)before.Add(name);
+        }
+        foreach(var claim in supplied)
+        {
+            var canonical=GrapeRegistry.Resolve(claim.Grape);
+            if(canonical is null||!GrapeRegistry.TryGetAliases(canonical,out var aliases))continue;
+            if(GrapeEvidence.FromGrapes(claim.SourceExcerpt,aliases).ExplicitPercent==100&&before.Any(name=>name!=canonical))return true;
         }
         return false;
     }

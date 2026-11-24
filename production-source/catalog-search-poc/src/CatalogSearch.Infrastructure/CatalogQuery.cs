@@ -169,6 +169,9 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
                 SourceFingerprint.Create(product.SourceDocumentId, extractedJson), enrichmentVersion, DateTimeOffset.UtcNow);
             if (saved.Status == "conflict")
             {
+                if(saved.Content is not null&&ImporterEnrichmentAcquisition.HasExclusiveCompositionConflict(
+                    string.IsNullOrWhiteSpace(original)?[]:[original],saved.Content.Grapes))
+                { counts.Conflicts++; return false; }
                 GrapeRegistry.TryGetAliases(grape.Name, out var conflictAliases);
                 if (saved.Content is null || saved.Content.Grapes.Any(g => conflictAliases.Contains(
                     g.Grape.Replace("サンジョヴェーゼ", "サンジョベーゼ", StringComparison.Ordinal), StringComparer.OrdinalIgnoreCase)))

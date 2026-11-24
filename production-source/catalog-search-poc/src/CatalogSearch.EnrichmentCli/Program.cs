@@ -22,6 +22,11 @@ public sealed record AcquisitionPolicyV2(string Schema, IReadOnlyList<ImporterHo
     int MaximumFiles, long MaximumTotalBytes,
     IReadOnlyDictionary<string,IReadOnlyDictionary<string,string>> ReviewedJetSuppliers,
     IReadOnlyDictionary<string,IReadOnlyDictionary<string,YourCellarProductPageIdentity.ProducerRule>> ReviewedYourCellarSuppliers);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AcquisitionPolicyV3(string Schema,IReadOnlyList<ImporterHostRule> Rules,int MaximumFiles,long MaximumTotalBytes,
+    IReadOnlyDictionary<string,IReadOnlyDictionary<string,string>> ReviewedJetSuppliers,
+    IReadOnlyDictionary<string,IReadOnlyDictionary<string,YourCellarProductPageIdentity.ProducerRule>> ReviewedYourCellarSuppliers,
+    IReadOnlyDictionary<string,IReadOnlyDictionary<string,string>> ReviewedToyotsuSuppliers);
 public sealed record ValidatedAcquisition(AcquisitionRequest Request, AcquisitionPolicy Policy, ImporterEvidenceHostPolicy Hosts)
 {
     public ImporterPageAdapterPolicy Adapters { get; init; } = new();
@@ -60,16 +65,26 @@ public static class AcquisitionInput
         Need(policyDoc.RootElement.ValueKind==JsonValueKind.Object&&policyDoc.RootElement.TryGetProperty("schema",out _));
         var policySchema=policyDoc.RootElement.GetProperty("schema").GetString();
         AcquisitionPolicy policy;ImporterPageAdapterPolicy adapters=new();
-        if(policySchema=="lips-importer-acquisition-policy/v2")
+        if(policySchema is "lips-importer-acquisition-policy/v2" or "lips-importer-acquisition-policy/v3")
         {
-            var v2=Parse<AcquisitionPolicyV2>(policyBytes,PolicyLimit,"schema","rules","maximumFiles","maximumTotalBytes","reviewedJetSuppliers","reviewedYourCellarSuppliers");
+            AcquisitionPolicyV2 v2;
+            IReadOnlyDictionary<string,IReadOnlyDictionary<string,string>>? toyotsu=null;
+            if(policySchema=="lips-importer-acquisition-policy/v3")
+            {
+                var v3=Parse<AcquisitionPolicyV3>(policyBytes,PolicyLimit,"schema","rules","maximumFiles","maximumTotalBytes","reviewedJetSuppliers","reviewedYourCellarSuppliers","reviewedToyotsuSuppliers");
+                Need(v3.ReviewedToyotsuSuppliers is not null);toyotsu=v3.ReviewedToyotsuSuppliers;
+                v2=new(v3.Schema,v3.Rules,v3.MaximumFiles,v3.MaximumTotalBytes,v3.ReviewedJetSuppliers,v3.ReviewedYourCellarSuppliers);
+            }
+            else v2=Parse<AcquisitionPolicyV2>(policyBytes,PolicyLimit,"schema","rules","maximumFiles","maximumTotalBytes","reviewedJetSuppliers","reviewedYourCellarSuppliers");
             Need(v2.ReviewedJetSuppliers is not null&&v2.ReviewedYourCellarSuppliers is not null&&v2.Rules is not null&&v2.Rules.All(r=>r is not null));
             // Adapter ownership is explicit fixed configuration, never derived from URL/page/model output.
             foreach(var supplier in v2.ReviewedJetSuppliers!.Keys)
                 Need(v2.Rules!.Any(r=>r.SupplierCode==supplier)&&v2.Rules.Where(r=>r.SupplierCode==supplier).All(r=>r.Host=="www.jetlc.co.jp"));
             foreach(var supplier in v2.ReviewedYourCellarSuppliers!.Keys)
                 Need(v2.Rules!.Any(r=>r.SupplierCode==supplier)&&v2.Rules.Where(r=>r.SupplierCode==supplier).All(r=>r.Host=="www.yourcellar.jp"));
-            adapters=new(v2.ReviewedJetSuppliers,v2.ReviewedYourCellarSuppliers);
+            foreach(var supplier in toyotsu?.Keys??[])
+                Need(v2.Rules!.Any(r=>r.SupplierCode==supplier)&&v2.Rules.Where(r=>r.SupplierCode==supplier).All(r=>r.Host=="toyotsu-wine.com"));
+            adapters=new(v2.ReviewedJetSuppliers,v2.ReviewedYourCellarSuppliers,toyotsu);
             policy=new(v2.Schema,v2.Rules!,v2.MaximumFiles,v2.MaximumTotalBytes);
         }
         else policy=Parse<AcquisitionPolicy>(policyBytes,PolicyLimit,"schema","rules","maximumFiles","maximumTotalBytes");
@@ -86,7 +101,7 @@ public static class AcquisitionInput
         Duplicate(original.RootElement); Need(original.RootElement.ValueKind == JsonValueKind.Object);
         Need(SourceFingerprint.Create(request.SourceDocumentId, request.ExtractedJson!) == request.OriginalFingerprint);
         Need(SourceIdentityBinding.Verify(i, request.ExtractedJson!));
-        Need(policy.Schema is "lips-importer-acquisition-policy/v1" or "lips-importer-acquisition-policy/v2" && policy.Rules is { Count: > 0 and <= 100 } &&
+        Need(policy.Schema is "lips-importer-acquisition-policy/v1" or "lips-importer-acquisition-policy/v2" or "lips-importer-acquisition-policy/v3" && policy.Rules is { Count: > 0 and <= 100 } &&
             policy.Rules.All(x => x is not null) && policy.MaximumFiles is > 0 and <= 100000 && policy.MaximumTotalBytes is > 0 and <= 1099511627776);
         var hosts = new ImporterEvidenceHostPolicy(policy.Rules.Select(x => new KeyValuePair<string, string>(x.SupplierCode, x.Host)));
         Need(hosts.Allows(i.SupplierCode, request.OfficialUrl));

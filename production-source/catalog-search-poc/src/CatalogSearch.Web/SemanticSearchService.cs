@@ -42,16 +42,7 @@ public sealed class DatabaseSemanticSearchStore(CatalogSearchDbContext db, IConf
         try
         {
             await db.Database.ExecuteSqlRawAsync("SET TRANSACTION READ ONLY", ct);
-            IImporterEnrichmentReader? reader = null;
-            string? extractorVersion = null;
-            if (configuration["ImporterEnrichment:Root"] is { Length: > 0 } root)
-            {
-                if (!Path.IsPathFullyQualified(root)) throw new ArgumentException("enrichment_root_must_be_absolute");
-                extractorVersion = configuration["ImporterEnrichment:ExtractorVersion"];
-                if (string.IsNullOrWhiteSpace(extractorVersion) || extractorVersion.Length > 200 || extractorVersion.Any(char.IsControl))
-                    throw new ArgumentException("enrichment_extractor_version_required");
-                reader = new FileImporterEnrichmentReader(root);
-            }
+            var (reader, extractorVersion) = ImporterEnrichmentReaderConfiguration.Create(configuration);
             return new Read(db, tx, reader, extractorVersion);
         }
         catch { await tx.DisposeAsync(); throw; }

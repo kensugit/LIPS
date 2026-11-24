@@ -1,0 +1,16 @@
+{
+  "FE4113": {
+    "observedBytes": 46020,
+    "observedSha256": "5459cb0a107d6dd0379a66013f3660f0ecfa6553d36ff083560dcbe448c2e868",
+    "fixtureBytes": 983,
+    "fixtureSha256": "56adae000643dce19e728882973a6067696948feb2d21ee111d9757026d9e678",
+    "derivation": "Actual title and six identity/grape rows; surrounding markup reduced; FE4113 product excerpt shortened to the direct100% phrase; related Merlot poison synthetic; not complete original HTML"
+  },
+  "FE4218": {
+    "observedBytes": 46033,
+    "observedSha256": "043f07b483f2bf4b13df18e4bfe1b31eb6f1e30b5bc05475a50f52033dbf6c8f",
+    "fixtureBytes": 807,
+    "fixtureSha256": "9bc98b40a0747edc5c6b626c128c4ebc2c522222494814b51c59d6dbd6ad1aab",
+    "derivation": "Actual title and six identity/grape rows; surrounding markup reduced; FE4113 product excerpt shortened to the direct100% phrase; related Merlot poison synthetic; not complete original HTML"
+  }
+}

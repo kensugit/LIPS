@@ -183,6 +183,24 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
   Need(known?result.Mode=="model" && scoped.LastPlan!.Regions.Count==3:result.Mode=="needsClarification" && scoped.SearchCalls==0);
  }
 }
+{
+ var options=new SemanticSearchOptions(["フランス"],[],["白","赤"],[],[],[],GrapeRegistry.Names);
+ var local=new VocabularyStore(new("half-sweet-fixture",options));var unused=new UnusedSemanticInterpreter();
+ foreach(var alias in new[]{"半甘口","やや甘口"}) {
+  var result=await new SemanticSearchService(local,unused).SearchAsync(new(alias+"の白ワイン"),default);
+  Need(result.Mode=="rules" && local.LastPlan is {Taste:"やや甘口",Filter:{ProductType:"白"}});
+  Need(WineTasteEvidence.Matches("{\"Sweetness\":\"半甘口\"}",local.LastPlan!.Taste!));
+  Need(!WineTasteEvidence.Matches("{\"Sweetness\":\"甘口\"}",local.LastPlan.Taste!));
+ }
+ Need(JapaneseWineDictionary.Interpret("甘い香りの白ワイン",options) is null && unused.Calls==0);
+ var legacy=Path.Combine(Path.GetTempPath(),"lips-legacy-config");var extra=Path.Combine(Path.GetTempPath(),"lips-extra-config");
+ var values=new Dictionary<string,string?>{{"ImporterEnrichment:Root",legacy},{"ImporterEnrichment:ExtractorVersion","old-v1"},
+  {"ImporterEnrichment:SupplierRoutes:TOYOTSU:Root",extra},{"ImporterEnrichment:SupplierRoutes:TOYOTSU:ExtractorVersion","toyotsu-v1"}};
+ var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();var route=ImporterEnrichmentReaderConfiguration.Create(config);
+ Need(route.Reader is RoutedImporterEnrichmentReader && route.LegacyVersion=="old-v1");
+ values["ImporterEnrichment:SupplierRoutes:TOYOTSU:Root"]=legacy;
+ try{ImporterEnrichmentReaderConfiguration.Create(new ConfigurationBuilder().AddInMemoryCollection(values).Build());throw new InvalidOperationException("same root accepted");}catch(ArgumentException){checks++;}
+}
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{
  public List<string> Messages {get;}=[];

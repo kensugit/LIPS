@@ -18,7 +18,7 @@ public static class JapaneseWineDictionary
         @")の)?(?<place>[^の]+?)(?:の(?:(?<grape>[^の、。]+?)(?:が)?(?<mode>主体|を含む)(?:の)?(?:(?<type>赤|白|ロゼ)?ワイン)?|(?<type>赤|白|ロゼ)?ワイン))?$",
         RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
 
-    private static readonly string Tastes = string.Join("|", WineDictionaryData.Current.Sweetness
+    private static readonly string Tastes = string.Join("|", WineTasteVocabulary.SweetnessNames
         .Concat(WineDictionaryData.Current.Flavors.Keys).OrderByDescending(t => t.Length).Select(Regex.Escape));
     private static readonly Regex TasteForm = new(
         "^(?:(?<place>[^の]+?)の)?(?<taste>" + Tastes + ")(?:の風味)?(?:の)?" +
@@ -39,15 +39,16 @@ public static class JapaneseWineDictionary
             var color = taste.Groups["typeAlias"].Success ? CatalogSearchVocabulary.ProductType(taste.Groups["typeAlias"].Value)
                 : taste.Groups["type"].Success ? taste.Groups["type"].Value : null;
             var sparkling = taste.Groups["sparkling"].Success;
-            if (countryOrPlace.Length == 0) return new(null, [], [], color, null, taste.Groups["taste"].Value, sparkling);
+            var canonicalTaste=WineTasteVocabulary.ResolveSweetness(taste.Groups["taste"].Value)??taste.Groups["taste"].Value;
+            if (countryOrPlace.Length == 0) return new(null, [], [], color, null, canonicalTaste, sparkling);
             var countryAliases = CountryGroups.SingleOrDefault(c => Matches(c, countryOrPlace));
             if (countryAliases is not null)
             {
                 var registered = countryAliases.Where(c => options.Countries.Contains(c, StringComparer.Ordinal)).ToArray();
-                return registered.Length == 0 ? null : new(null, registered, [], color, null, taste.Groups["taste"].Value, sparkling);
+                return registered.Length == 0 ? null : new(null, registered, [], color, null, canonicalTaste, sparkling);
             }
             var placeMatch = InterpretPlace(countryOrPlace, options);
-            return placeMatch is null ? null : placeMatch with { ProductType = color, Taste = taste.Groups["taste"].Value, Sparkling = sparkling };
+            return placeMatch is null ? null : placeMatch with { ProductType = color, Taste = canonicalTaste, Sparkling = sparkling };
         }
         return InterpretPlace(normalized, options);
     }

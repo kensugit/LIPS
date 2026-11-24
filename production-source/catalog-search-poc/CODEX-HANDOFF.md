@@ -894,3 +894,6 @@ workbookProtectionの完全空要素だけ許可。属性false含む/子/comment
 
 ## 2026-10-13 Linux隔離業務/UI受入完了
 空保護タグ限定修正13＋既存2合格。通常SKU原典価格成分詳細を表示するcatalog.js最小修正（合成Edge9合格）。固定v3でA業務/再利用/境界/Unknown確認、B run010取消→次資料Held Passed。v4 UI差分run012はGET限定・server read-only・全25table前後同一・業務POST0で納価1735/1936表示/原典確認Passed。全所有process/listener0。FINAL-ACCEPTANCE-PROOF SHA928d5826afc782803b222757fe6204bbf51ec50174b876d44b134d65251ab390を親取得照合・PNG目視。旧A最終UI失敗は保持し合成証跡で範囲完了。詳細linux-business-candidate-20261013/ACCEPTANCE-COMPLETED.md。Next: 今回BASE待ちは解消、完了試験反復不要。Linux実原本/実AI/AOC等の別範囲と本番は未実施。P14s既存環境未変更。
+
+## 2026-11-24 公式根拠・味わい条件候補（未commit・本番未適用）
+固定基点db533dbacd2555635d4abe44c8c33244479c04af。Toyotsu FE4113/FE4218の局所DOM抽出・旧YourCellar互換supplier別reader routing、100%異品種conflict、味わい否定/型/競合、JSON半甘口→やや甘口aliasを追加。docs/OFFICIAL-EVIDENCE-POC.mdとOFFICIAL-EVIDENCE-VALIDATION.json参照。実HTML2件は親固定local原本、価格在庫/原本不変。実supplier code/原本FPは未取得。専用合成PGと固定12問は独立QA担当、作者はDB/HTTP/本番0。国/産地/容量/年号facet変更は別担当でこの差分に含めない。Next: 最終差分固定→独立QA→親統合/commit、実cache配備・本番更新は別工程。
