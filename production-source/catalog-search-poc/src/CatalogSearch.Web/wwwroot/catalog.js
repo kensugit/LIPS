@@ -1,4 +1,4 @@
-const $=id=>document.getElementById(id);let data=[],page=0,sortKey=null,sortDirection=1;const size=50;let searchPending=false;
+const $=id=>document.getElementById(id);let data=[],page=0,sortKey=null,sortDirection=1;const size=50;let searchPending=false,catalogFacets=null;
 const money=n=>n==null?'金額記載なし／要確認':new Intl.NumberFormat('ja-JP').format(n)+'円';
 const selectedProducts=new Map();
 const supplierNames=new Map();
@@ -53,11 +53,50 @@ function setSearchPending(pending) {
 
 function searchRequest() {
  const explicitUi={};
- for(const [id,key]of [['supplier','supplier'],['country','country'],['region','region'],['type','productType'],['vintage','vintage']])if($(id).value)explicitUi[key]=$(id).value;
+ for(const [id,key]of [['supplier','supplier'],['country','country'],['type','productType'],['vintage','vintage']])if($(id).value)explicitUi[key]=$(id).value;
+ const region=$('region').selectedOptions[0];if($('region').value)explicitUi.region=region?.dataset.region??$('region').value;
  for(const id of ['priceMin','priceMax','volumeMl'])if($(id).value!=='')explicitUi[id]=Number($(id).value);
  if($('available').checked)explicitUi.availableOnly=true;
  return {query:$('text').value,explicitUi};
 }
+function facetOption(entry){const option=el('option',entry.label);option.value=entry.value;option.title='原表記：'+entry.rawValues.join(' / ');return option}
+function renderRegionFacets(preserveKey=''){
+ if(!catalogFacets)return;
+ const country=$('country').value,select=$('region');select.replaceChildren(el('option','すべて'));select.firstChild.value='';
+ for(const entry of catalogFacets.regions.filter(r=>!country||r.country===country)){
+  const label=country?entry.label:entry.label+(entry.countryLabel?'（'+entry.countryLabel+'）':'（国指定なし・同名を含む）');
+  const option=facetOption({...entry,label});option.value=JSON.stringify([entry.country,entry.value]);option.dataset.region=entry.value;option.dataset.country=entry.country;select.append(option);
+ }
+ select.value=[...select.options].some(o=>o.value===preserveKey)?preserveKey:'';
+}
+function populateFacets(response){
+ const options=response.options;catalogFacets=response.facets??null;
+ if(catalogFacets!==null){
+  const shape=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&keys.every(key=>Object.hasOwn(value,key));
+  const text=value=>typeof value==='string'&&value.length>0&&value.length<=200;
+  const values=(entries,source)=>Array.isArray(entries)&&entries.every(e=>shape(e,['value','label','rawValues'])&&text(e.value)&&text(e.label)&&Array.isArray(e.rawValues)&&e.rawValues.length>0&&e.rawValues.every(text)&&source.includes(e.value))&&new Set(entries.map(e=>e.value)).size===entries.length;
+  if(!shape(catalogFacets,['countries','regions','volumesMl','vintages'])||!values(catalogFacets.countries,options.countries)||!values(catalogFacets.vintages,options.vintages)||
+   !Array.isArray(catalogFacets.volumesMl)||catalogFacets.volumesMl.some(v=>!Number.isInteger(v)||v<=0||!options.volumesMl.includes(v))||new Set(catalogFacets.volumesMl).size!==catalogFacets.volumesMl.length||
+   !Array.isArray(catalogFacets.regions)||catalogFacets.regions.some(e=>!shape(e,['country','countryLabel','value','label','rawValues'])||!text(e.value)||!text(e.label)||typeof e.country!=='string'||typeof e.countryLabel!=='string'||
+    !Array.isArray(e.rawValues)||e.rawValues.length===0||!e.rawValues.every(v=>text(v)&&options.regions.includes(v))||!e.rawValues.includes(e.value)||
+    (e.country? !catalogFacets.countries.some(c=>c.value===e.country&&c.label===e.countryLabel):e.countryLabel!==''))||
+   new Set(catalogFacets.regions.map(e=>JSON.stringify([e.country,e.value]))).size!==catalogFacets.regions.length)
+    throw Error('検索条件の選択肢が一致しません。ページを再読み込みしてください。');
+  for(const entry of catalogFacets.countries)$('country').append(facetOption(entry));
+  for(const entry of catalogFacets.vintages)$('vintage').append(facetOption(entry));
+  for(const value of catalogFacets.volumesMl){const option=el('option',value+' ml');option.value=value;$('volumeMl').append(option)}
+  renderRegionFacets();
+ }else{
+  // Compatible with older servers; no speculative geographic alias merging in the browser.
+  for(const [id,key]of [['country','countries'],['region','regions'],['volumeMl','volumesMl'],['vintage','vintages']])for(const value of new Set(options[key]))if(value){const option=el('option',id==='volumeMl'?value+' ml':value);option.value=value;$(id).append(option)}
+ }
+ for(const value of new Set(options.productTypes))if(value){const option=el('option',value);option.value=value;$('type').append(option)}
+}
+$('country').addEventListener('change',()=>renderRegionFacets());
+$('region').addEventListener('change',()=>{
+ if(!catalogFacets||!$('region').value)return;const option=$('region').selectedOptions[0],key=option.value;
+ $('country').value=option.dataset.country;renderRegionFacets(key);
+});
 const fallbackLabels={model_disabled:'AI解釈は無効です。',query_empty:'自由文が未入力のため、指定した条件で検索しました。',catalog_changed:'商品情報が更新されたため、最新情報で規則検索しました。',bridge_configuration_invalid:'AI解釈の接続設定を利用できません。',bridge_http_failure:'AI解釈サービスから正常な応答を得られませんでした。',bridge_response_too_large:'AI解釈の応答が許容サイズを超えました。',bridge_timeout:'AI解釈が制限時間内に完了しませんでした。',bridge_unavailable:'AI解釈サービスへ接続できませんでした。',bridge_invalid_response:'AI解釈の応答を検証できませんでした。',bridge_request_invalid:'AI解釈への依頼を検証できませんでした。',merged_conditions_invalid:'AI解釈と明示条件の組合せを採用できませんでした。'};
 function adoptedConditions(conditions) {
  const c=conditions||{},f=c.filter||{},parts=[];
@@ -205,11 +244,18 @@ $('download-csv').addEventListener('click',()=>{if(searchPending||!selectedProdu
 $('download-selected-csv').addEventListener('click',downloadResults);
 $('close-selected').onclick=$('back-to-results').onclick=()=>$('selected-products').close();
 $('selected-products').addEventListener('close',()=>{if(!$('download-csv').disabled)$('download-csv').focus();else $('text').focus()});
-$('search').addEventListener('submit',e=>{e.preventDefault();search()});$('search').addEventListener('reset',()=>setTimeout(search,0));$('example').addEventListener('click',()=>{$('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';$('country').value='フランス';$('region').value='ブルゴーニュ';$('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
-(async()=>{try{
- const response=await json('/api/free-text-search/options'),options=response.options;
- for(const [id,key]of [['country','countries'],['region','regions'],['type','productTypes'],['volumeMl','volumesMl'],['vintage','vintages']])for(const value of options[key])if(value){const o=el('option',id==='volumeMl'?value+' ml':value);o.value=value;$(id).append(o)}
+$('search').addEventListener('submit',e=>{e.preventDefault();search()});
+$('search').addEventListener('reset',()=>setTimeout(()=>{renderRegionFacets();search()},0));
+$('example').addEventListener('click',()=>{
+ $('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';
+ $('country').value=catalogFacets?.countries.find(c=>c.label==='フランス')?.value??'フランス';renderRegionFacets();
+ if(catalogFacets){const option=[...$('region').options].find(o=>o.textContent==='ブルゴーニュ');$('region').value=option?.value??''}else $('region').value='ブルゴーニュ';
+ $('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search();
+});
+$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
+(async()=>{setSearchPending(true);try{
+ const response=await json('/api/free-text-search/options');populateFacets(response);
  for(const supplier of response.suppliers){supplierNames.set(supplier.code,supplier.name);const option=el('option',supplier.name+'（'+supplier.code+'）');option.value=supplier.code;$('supplier').append(option)}
  try{const summary=await json('/api/options?vintageNotation=canonical');$('total').textContent=`登録商品 ${summary.total.toLocaleString()}件`;}catch{$('total').textContent='登録商品数を取得できません';}
  await search();
-}catch(e){$('total').textContent='接続できません';error(e.message)}})();
+}catch(e){setSearchPending(false);$('search').inert=true;$('total').textContent='接続できません';error(e.message)}})();

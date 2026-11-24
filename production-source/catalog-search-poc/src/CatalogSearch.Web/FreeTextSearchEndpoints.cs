@@ -9,7 +9,7 @@ public static class FreeTextSearchEndpoints
   {
    var snapshot=await store.SnapshotAsync(ct);
    var v2=bool.TryParse(config["FreeTextSearch:SemanticV2Enabled"],out var enabled)&&enabled;
-   return Results.Ok(new {catalogVersion=snapshot.Version,options=snapshot.Options,suppliers=snapshot.Suppliers,modelEnabled=v2?semantic.Enabled:interpreter.Enabled,semanticV2Enabled=v2});
+   return Results.Ok(new {catalogVersion=snapshot.Version,options=snapshot.Options,facets=snapshot.Facets,suppliers=snapshot.Suppliers,modelEnabled=v2?semantic.Enabled:interpreter.Enabled,semanticV2Enabled=v2});
   });
   app.MapPost("/api/free-text-search/search",async(HttpRequest request,FreeTextSearchService service,SemanticSearchService semantic,IConfiguration config,CancellationToken ct)=>
   {

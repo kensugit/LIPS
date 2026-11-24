@@ -9,7 +9,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace CatalogSearch.Infrastructure;
 
 public sealed record SearchSupplierOption(string Code, string Name);
-public sealed record SearchCatalogSnapshot(string Version, FreeTextSearchOptions Options, IReadOnlyList<SearchSupplierOption> Suppliers);
+public sealed record SearchCatalogSnapshot(string Version, FreeTextSearchOptions Options, IReadOnlyList<SearchSupplierOption> Suppliers)
+{
+    // Display facets are separate from the raw registry supplied to the interpreter and its validators.
+    public CatalogFacetOptions? Facets { get; init; }
+}
 
 /// <summary>Actual search-data identity. No source content, credentials or row data is logged.</summary>
 public sealed class CatalogSearchSnapshotProvider(CatalogSearchDbContext db)
@@ -37,14 +41,16 @@ public sealed class CatalogSearchSnapshotProvider(CatalogSearchDbContext db)
             while (await reader.ReadAsync(ct)) digest.AppendRecord(reader.GetString(0));
             digest.EndTable();
         }
-        var countries = await db.SupplierProducts.Select(x => x.Country).Distinct().ToListAsync(ct);
-        var regions = await db.SupplierProducts.Select(x => x.Region).Distinct().ToListAsync(ct);
+        var pairs = await db.SupplierProducts.Select(x => new CatalogFacetRegionSource(x.Country, x.Region)).Distinct().ToListAsync(ct);
+        var countries = pairs.Select(x => x.Country);
+        var regions = pairs.Select(x => x.Region);
         var types = await db.SupplierProducts.Select(x => x.ProductType).Distinct().ToListAsync(ct);
         var volumes = await db.SupplierProducts.Select(x => x.VolumeMl).Distinct().ToListAsync(ct);
         var vintages = await db.SupplierProducts.Select(x => x.VintageRaw).Distinct().ToListAsync(ct);
         var suppliers = await db.Suppliers.AsNoTracking().Select(x => new SearchSupplierOption(x.Code, x.Name)).ToListAsync(ct);
         var options = CanonicalOptions(countries, regions, types, volumes, vintages, suppliers);
-        var result = new SearchCatalogSnapshot(digest.Finish(), options, suppliers.OrderBy(x => x.Code, StringComparer.Ordinal).ToArray());
+        var result = new SearchCatalogSnapshot(digest.Finish(), options, suppliers.OrderBy(x => x.Code, StringComparer.Ordinal).ToArray())
+            { Facets = CatalogFacetOptions.Build(pairs, volumes, vintages) };
         if (owned is not null) await owned.CommitAsync(ct);
         return result;
     }

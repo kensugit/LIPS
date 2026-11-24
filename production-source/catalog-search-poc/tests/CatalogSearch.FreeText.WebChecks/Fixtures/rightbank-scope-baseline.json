@@ -1,0 +1,99 @@
+{
+  "Version": "libournais-user-selected/20261120-v2",
+  "Sources": [
+    "https://www.bordeaux.com/fr/appellations/saint-emilion-pomerol-fronsac/",
+    "https://www.bordeaux.com/en/designations/saint-emilion-pomerol-fronsac/saint-emilion/"
+  ],
+  "Members": [
+    [
+      "Canon Fronsac",
+      "Canon-Fronsac",
+      "カノン・フロンサック",
+      "カノン フロンサック"
+    ],
+    [
+      "Castillon-Côtes de Bordeaux",
+      "Castillon-Cotes de Bordeaux",
+      "カスティヨン・コート・ド・ボルドー",
+      "AOC カスティヨン－コート・ド・ボルドー",
+      "カスティヨン コート ド ボルドー"
+    ],
+    [
+      "Francs Côtes de Bordeaux",
+      "Francs Cotes de Bordeaux",
+      "フラン・コート・ド・ボルドー"
+    ],
+    [
+      "Fronsac",
+      "フロンサック"
+    ],
+    [
+      "Lalande de Pomerol",
+      "Lalande-de-Pomerol",
+      "ラランド・ド・ポムロール"
+    ],
+    [
+      "Lussac Saint-Emilion",
+      "Lussac-Saint-Émilion",
+      "リュサック・サンテミリオン",
+      "リュサック サンテミリオン"
+    ],
+    [
+      "Montagne Saint-Emilion",
+      "Montagne-Saint-Émilion",
+      "モンターニュ・サンテミリオン",
+      "モンターニュ サンテミリオン"
+    ],
+    [
+      "Pomerol",
+      "ポムロール",
+      "AOC ポムロール",
+      "AOCポムロール"
+    ],
+    [
+      "Puisseguin Saint-Emilion",
+      "Puisseguin-Saint-Émilion",
+      "ピュイスガン・サンテミリオン",
+      "ピュイスガン サン・テミリオン",
+      "ピュイスガン サンテミリオン"
+    ],
+    [
+      "Saint-Emilion",
+      "Saint-Émilion",
+      "サンテミリオン",
+      "サン・テミリオン",
+      "AOC サンテミリオン"
+    ],
+    [
+      "Saint-Georges Saint-Emilion",
+      "Saint-Georges-Saint-Émilion",
+      "サン・ジョルジュ・サンテミリオン"
+    ],
+    [
+      "Saint-Emilion Grand Cru",
+      "Saint-Émilion Grand Cru",
+      "サンテミリオン・グラン・クリュ",
+      "AOC サンテミリオングランクリュ",
+      "AOCサンテミリオングランクリュ",
+      "サンテミリオン GC",
+      "サンテミリオンGC",
+      "サン・テミリオン グラン クリュ",
+      "サンテミリオン グランクリュ"
+    ]
+  ],
+  "Outside": [
+    "Blaye",
+    "Blaye-Cotes de Bordeaux",
+    "Blaye-Côtes de Bordeaux",
+    "Bourg",
+    "Cadillac Cotes de Bordeaux",
+    "Cadillac Côtes de Bordeaux",
+    "Cotes de Bourg",
+    "Côtes de Bourg",
+    "カディヤック・コート・ド・ボルドー",
+    "コート・ド・ブール",
+    "ブライ",
+    "ブライ・コート・ド・ボルドー",
+    "ブール"
+  ]
+}

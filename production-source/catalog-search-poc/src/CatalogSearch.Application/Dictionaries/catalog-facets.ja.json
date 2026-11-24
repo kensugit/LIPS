@@ -1,0 +1,167 @@
+{
+  "Version": 1,
+  "CountryAliases": {
+    "フランス": [
+      "フランス",
+      "France"
+    ],
+    "イタリア": [
+      "イタリア"
+    ],
+    "ドイツ": [
+      "ドイツ",
+      "Deutschland",
+      "Germany"
+    ],
+    "日本": [
+      "日本",
+      "Japan"
+    ],
+    "ニュージーランド": [
+      "ニュージーランド",
+      "New Zealand",
+      "ニュジーランド"
+    ],
+    "ポルトガル": [
+      "ポルトガル",
+      "Portugal"
+    ],
+    "南アフリカ": [
+      "南アフリカ",
+      "South Africa",
+      "ミナミアフリカ"
+    ]
+  },
+  "RightBankAliases": {
+    "Version": "libournais-user-selected/20261120-v2",
+    "Sources": [
+      "https://www.bordeaux.com/fr/appellations/saint-emilion-pomerol-fronsac/",
+      "https://www.bordeaux.com/en/designations/saint-emilion-pomerol-fronsac/saint-emilion/"
+    ],
+    "Groups": [
+      {
+        "Country": "フランス",
+        "Label": "カノン・フロンサック",
+        "Names": [
+          "Canon Fronsac",
+          "Canon-Fronsac",
+          "カノン・フロンサック",
+          "カノン フロンサック"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "カスティヨン・コート・ド・ボルドー",
+        "Names": [
+          "Castillon-Côtes de Bordeaux",
+          "Castillon-Cotes de Bordeaux",
+          "カスティヨン・コート・ド・ボルドー",
+          "AOC カスティヨン－コート・ド・ボルドー",
+          "カスティヨン コート ド ボルドー"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "フラン・コート・ド・ボルドー",
+        "Names": [
+          "Francs Côtes de Bordeaux",
+          "Francs Cotes de Bordeaux",
+          "フラン・コート・ド・ボルドー"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "フロンサック",
+        "Names": [
+          "Fronsac",
+          "フロンサック"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "ラランド・ド・ポムロール",
+        "Names": [
+          "Lalande de Pomerol",
+          "Lalande-de-Pomerol",
+          "ラランド・ド・ポムロール"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "リュサック・サンテミリオン",
+        "Names": [
+          "Lussac Saint-Emilion",
+          "Lussac-Saint-Émilion",
+          "リュサック・サンテミリオン",
+          "リュサック サンテミリオン"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "モンターニュ・サンテミリオン",
+        "Names": [
+          "Montagne Saint-Emilion",
+          "Montagne-Saint-Émilion",
+          "モンターニュ・サンテミリオン",
+          "モンターニュ サンテミリオン"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "ポムロール",
+        "Names": [
+          "Pomerol",
+          "ポムロール",
+          "AOC ポムロール",
+          "AOCポムロール"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "ピュイスガン・サンテミリオン",
+        "Names": [
+          "Puisseguin Saint-Emilion",
+          "Puisseguin-Saint-Émilion",
+          "ピュイスガン・サンテミリオン",
+          "ピュイスガン サン・テミリオン",
+          "ピュイスガン サンテミリオン"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "サンテミリオン",
+        "Names": [
+          "Saint-Emilion",
+          "Saint-Émilion",
+          "サンテミリオン",
+          "サン・テミリオン",
+          "AOC サンテミリオン"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "サン・ジョルジュ・サンテミリオン",
+        "Names": [
+          "Saint-Georges Saint-Emilion",
+          "Saint-Georges-Saint-Émilion",
+          "サン・ジョルジュ・サンテミリオン"
+        ]
+      },
+      {
+        "Country": "フランス",
+        "Label": "サンテミリオン・グラン・クリュ",
+        "Names": [
+          "Saint-Emilion Grand Cru",
+          "Saint-Émilion Grand Cru",
+          "サンテミリオン・グラン・クリュ",
+          "AOC サンテミリオングランクリュ",
+          "AOCサンテミリオングランクリュ",
+          "サンテミリオン GC",
+          "サンテミリオンGC",
+          "サン・テミリオン グラン クリュ",
+          "サンテミリオン グランクリュ"
+        ]
+      }
+    ]
+  }
+}

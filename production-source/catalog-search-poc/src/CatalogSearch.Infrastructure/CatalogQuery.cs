@@ -90,10 +90,21 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
         if (filter.Limit is < 1 or > 2000 || filter.PriceMax < 0 || filter.PriceMin < 0 || filter.PriceMin > filter.PriceMax || filter.VolumeMl <= 0) throw new ArgumentException("Invalid search limits.");
         var query = db.SupplierProducts.AsNoTracking();
         if (natural.SupplierId is { } supplierId) query = query.Where(x => x.SupplierId == supplierId);
-        if (semantic?.CountryAliases.Count > 0) query = query.Where(x => semantic.CountryAliases.Contains(x.Country));
-        else if (!string.IsNullOrWhiteSpace(filter.Country)) query = query.Where(x => x.Country == filter.Country);
-        if (!string.IsNullOrWhiteSpace(filter.Region)) query = query.Where(x => x.Region == filter.Region);
-        if (semantic?.Regions.Count > 0) query = query.Where(x => semantic.Regions.Contains(x.Region));
+        if (!string.IsNullOrWhiteSpace(filter.Country))
+        {
+            var rawCountries = await db.SupplierProducts.AsNoTracking().Select(x => x.Country).Distinct().ToListAsync(ct);
+            var matchingCountries = CatalogFacetVocabulary.MatchingCountries(rawCountries, filter.Country);
+            query = query.Where(x => matchingCountries.Contains(x.Country));
+        }
+        else if (semantic?.CountryAliases.Count > 0) query = query.Where(x => semantic.CountryAliases.Contains(x.Country));
+        var requestedRegions = semantic?.Regions.Count > 0 ? semantic.Regions :
+            !string.IsNullOrWhiteSpace(filter.Region) ? new[] { filter.Region } : [];
+        if (requestedRegions.Count > 0)
+        {
+            var rawRegions = await db.SupplierProducts.AsNoTracking().Select(x => new { x.Country, x.Region }).Distinct().ToListAsync(ct);
+            var matchingRegions = CatalogFacetVocabulary.MatchingRegions(rawRegions.Select(x => (x.Country, x.Region)), filter.Country, requestedRegions);
+            query = query.Where(x => matchingRegions.Contains(x.Region));
+        }
         if (!string.IsNullOrWhiteSpace(filter.ProductType))
             query = natural.Sparkling || natural.Champagne || semantic?.Sparkling == true
                 ? query.Where(x => x.ProductType.Contains(filter.ProductType))

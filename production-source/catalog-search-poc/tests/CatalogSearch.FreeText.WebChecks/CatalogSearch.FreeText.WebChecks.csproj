@@ -1,1 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/CatalogSearch.Web/CatalogSearch.Web.csproj" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/CatalogSearch.Web/CatalogSearch.Web.csproj" /></ItemGroup><ItemGroup><None Update="Fixtures/rightbank-scope-baseline.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup></Project>

@@ -7,25 +7,11 @@ namespace CatalogSearch.Web;
 // Exact aliases only. Unknown regions are not assigned membership; coverage is disclosed explicitly.
 public static class ReviewedRightBankScope
 {
-    public const string Version = "libournais-user-selected/20261120-v2";
+    public const string Version = CatalogFacetVocabulary.RightBankSourceVersion;
     public const string CoverageNotice = "サンテミリオン・ポムロール・フロンサック周辺の、照合できた登録産地のみを対象としています。未同定の産地は含みません。";
-    public static readonly IReadOnlyList<string> Sources = Array.AsReadOnly(new[] {
-        "https://www.bordeaux.com/fr/appellations/saint-emilion-pomerol-fronsac/",
-        "https://www.bordeaux.com/en/designations/saint-emilion-pomerol-fronsac/saint-emilion/" });
-    static readonly string[][] Members = [
-        ["Canon Fronsac", "Canon-Fronsac", "カノン・フロンサック", "カノン フロンサック"],
-        ["Castillon-Côtes de Bordeaux", "Castillon-Cotes de Bordeaux", "カスティヨン・コート・ド・ボルドー", "AOC カスティヨン－コート・ド・ボルドー", "カスティヨン コート ド ボルドー"],
-        ["Francs Côtes de Bordeaux", "Francs Cotes de Bordeaux", "フラン・コート・ド・ボルドー"],
-        ["Fronsac", "フロンサック"],
-        ["Lalande de Pomerol", "Lalande-de-Pomerol", "ラランド・ド・ポムロール"],
-        ["Lussac Saint-Emilion", "Lussac-Saint-Émilion", "リュサック・サンテミリオン", "リュサック サンテミリオン"],
-        ["Montagne Saint-Emilion", "Montagne-Saint-Émilion", "モンターニュ・サンテミリオン", "モンターニュ サンテミリオン"],
-        ["Pomerol", "ポムロール", "AOC ポムロール", "AOCポムロール"],
-        ["Puisseguin Saint-Emilion", "Puisseguin-Saint-Émilion", "ピュイスガン・サンテミリオン", "ピュイスガン サン・テミリオン", "ピュイスガン サンテミリオン"],
-        ["Saint-Emilion", "Saint-Émilion", "サンテミリオン", "サン・テミリオン", "AOC サンテミリオン"],
-        ["Saint-Georges Saint-Emilion", "Saint-Georges-Saint-Émilion", "サン・ジョルジュ・サンテミリオン"],
-        ["Saint-Emilion Grand Cru", "Saint-Émilion Grand Cru", "サンテミリオン・グラン・クリュ", "AOC サンテミリオングランクリュ", "AOCサンテミリオングランクリュ", "サンテミリオン GC", "サンテミリオンGC", "サン・テミリオン グラン クリュ", "サンテミリオン グランクリュ"]
-    ];
+    // One reviewed alias definition shared with display/search facets; membership and grade boundaries are unchanged.
+    public static readonly IReadOnlyList<string> Sources = CatalogFacetVocabulary.RightBankSources;
+    static readonly string[][] Members = CatalogFacetVocabulary.RightBankAliasGroups.Select(group => group.ToArray()).ToArray();
     static readonly HashSet<string> Outside = new(StringComparer.Ordinal) {
         "Blaye", "ブライ", "Bourg", "ブール", "Côtes de Bourg", "Cotes de Bourg", "コート・ド・ブール",
         "Blaye-Côtes de Bordeaux", "Blaye-Cotes de Bordeaux", "ブライ・コート・ド・ボルドー",

@@ -1,3 +1,19 @@
+# Current status: 検索条件正規化・公式根拠・甘辛度の統合候補（2026-11-24）
+
+基点master db533db。国・産地・容量・ヴィンテージを表示facetと原表記検索集合へ分離し、原本と価格・在庫を保持。国別の既知同義産地だけを統合し、右岸12群は共有JSONを参照する。半甘口＝やや甘口は本人確定、甘口・甘い香りとは区別。豊通2商品の専用adapter、別root/版によるsupplier routing、味わいの否定・型・競合判定を統合。新モデル・Migrationは追加しない。
+
+固定コードの最終pinsはdocs/SEARCH-ACCURACY-UPDATE-VALIDATION.json。旧OFFICIAL-EVIDENCE-VALIDATION.jsonは統合前のcomponent記録です。
+
+詳細はdocs/SEARCH-ACCURACY-UPDATE-20261124.md、docs/CATALOG-FACET-NORMALIZATION.md、docs/OFFICIAL-EVIDENCE-POC.md。単体・統合・同14商品12問・本番DBを別に記録し、固定質問/ラベルは不変。最終の独立比較レポートとGit同期の実結果は親のoutputs/search-accuracy-20261121の記録を参照する。先行ObservedChecks2拒否の原因は未確定、後の固定bin cold4成功と区別する。
+
+## Next work
+
+カタログ担当の最新採用source・owner明示引渡しを受け、最新inspectに一致する統合候補を再検証する。実supplier code/保存後SourceFP、fresh公式取得、cache/実UID/read-only mount、隔離＋本番DB比較、Web/llm-linkペアとAPI/UIの独立受入は別の必須工程。今回のローカル/合成成功を本番適用・19社補完完了と報告しない。旧原本/Unknown/単回記録は保持する。
+
+---
+
+## 以下は以前の段階の記録
+
 # Current status: 品種シノニム・同義OR検索候補（2026-11-24）
 
 最新master `86000a2c829780bc11797e9e79411db8492695bf` 基点の隔離worktree。ピノ・グリへピノグリ／ピノ・グリージョ／ピノグリージョ／Pinot Grigioを追加し、原文の隣接する同一canonical別名2つ＋明示contains/主体だけを一条件へ束ねる。白ANDcontains、画面条件優先、別品種/別条件OR・否定の保留を維持。地理scopeでのLLM品種候補も原文の確認済みalias由来だけに制限する。plain原本の`Pinot `を英語`not `否定と誤検出する既存不具合を単語境界へ修正。商品原本・価格・在庫・地域・スキーマ変更なし、実機/DB/公式fetchなし、未commit・未配備。

@@ -9,17 +9,20 @@ public static class VintageNotation
     public static string Normalize(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return "";
-        var value = raw.Normalize(NormalizationForm.FormKC).Trim();
+        var value = Regex.Replace(raw.Normalize(NormalizationForm.FormKC), @"\s+", " ", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)).Trim();
+        // Keep annotations, but do not show whitespace-only duplicates such as NV\n(2019) / NV (2019).
+        value = Regex.Replace(value, @"\s*([\(\[])\s*", "$1", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+        value = Regex.Replace(value, @"\s*([\)\]])", "$1", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
         var unwrapped = value;
         while (unwrapped.Length >= 2 && ((unwrapped[0] == '(' && unwrapped[^1] == ')') ||
                (unwrapped[0] == '[' && unwrapped[^1] == ']')))
             unwrapped = unwrapped[1..^1].Trim();
-        if (Regex.IsMatch(unwrapped, @"^[0-9]{4}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
-            return unwrapped;
+        if (Regex.IsMatch(unwrapped, @"^[0-9]{4}(?:年)?$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+            return unwrapped.TrimEnd('年');
         if (CatalogSearchVocabulary.IsNonVintage(unwrapped) ||
             Regex.IsMatch(unwrapped, @"^[NM]\s*\.?\s*V\s*\.?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
             return "NV";
-        return raw; // Age statements, blends and unknown values are not inferred.
+        return value; // Preserve age/blend/unknown meaning and annotations; normalize notation only.
     }
 
     public static string[] Options(IEnumerable<string> rawValues) => rawValues.Select(Normalize)

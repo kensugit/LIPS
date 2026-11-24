@@ -201,6 +201,15 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  values["ImporterEnrichment:SupplierRoutes:TOYOTSU:Root"]=legacy;
  try{ImporterEnrichmentReaderConfiguration.Create(new ConfigurationBuilder().AddInMemoryCollection(values).Build());throw new InvalidOperationException("same root accepted");}catch(ArgumentException){checks++;}
 }
+{
+ // Moving reviewed synonym data into one shared JSON must not change right-bank membership, grade or order.
+ using var expected=System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures","rightbank-scope-baseline.json")));
+ var e=expected.RootElement;
+ var baseline=new {Version=e.GetProperty("Version").GetString(),Sources=e.GetProperty("Sources").EnumerateArray().Select(x=>x.GetString()).ToArray(),
+  Members=e.GetProperty("Members").EnumerateArray().Select(g=>g.EnumerateArray().Select(x=>x.GetString()).ToArray()).ToArray(),
+  Outside=e.GetProperty("Outside").EnumerateArray().Select(x=>x.GetString()).ToArray()};
+ Need(System.Text.Json.JsonSerializer.Serialize(ReviewedRightBankScope.Definition)==System.Text.Json.JsonSerializer.Serialize(baseline));
+}
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{
  public List<string> Messages {get;}=[];
