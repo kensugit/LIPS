@@ -94,8 +94,8 @@ public class NaturalSearchTests
         Assert.Equal(text, result.Filter.Text);
     }
 
-    [Fact] public void ShortTypeConflictsAreRejected() =>
-        Assert.Throws<ArgumentException>(() => NaturalSearch.Parse(new(Text: "ブルゴーニュの白で15000円以内", ProductType: "赤")));
+    [Fact] public void ExplicitLegacyTypeOverridesSameAxisText() =>
+        Assert.Equal("赤",NaturalSearch.Parse(new(Text: "ブルゴーニュの白で15000円以内", ProductType: "赤")).Filter.Color);
 
     [Fact] public void BareWhiteIsAType() => Assert.Equal("白", NaturalSearch.Parse(new(Text: "白")).Filter.ProductType);
 

@@ -70,6 +70,7 @@ public static class FreeTextSearchContract
         var f=response.Filters; Strings(f.Keywords,10,100);Strings(response.UnparsedTerms,10,100);
         var effective=explicitUi with { Country=Prefer(explicitUi.Country,f.Country),Region=Prefer(explicitUi.Region,f.Region),ProductType=Prefer(explicitUi.ProductType,f.ProductType),VolumeMl=explicitUi.VolumeMl??f.VolumeMl,VintageRaw=Prefer(explicitUi.VintageRaw,f.Vintage),PriceMin=explicitUi.PriceMin??f.PriceMin,PriceMax=explicitUi.PriceMax??f.PriceMax,AvailableOnly=explicitUi.AvailableOnly||f.AvailableOnly==true,Text=null };
         Need(effective.Limit is >=1 and <=2000 && !(effective.PriceMin<0) && !(effective.PriceMax<0) && !(effective.PriceMin>effective.PriceMax) && !(effective.VolumeMl<=0),"Merged filters invalid");
+        effective=ProductTypeVocabulary.MergeUi(explicitUi,effective with {ProductType=f.ProductType}) with {ProductType=effective.ProductType};
         return new(effective,Prefer(explicitSupplierCode,f.Supplier),f.Keywords.Concat(response.UnparsedTerms).Distinct(StringComparer.Ordinal).ToArray());
     }
 }

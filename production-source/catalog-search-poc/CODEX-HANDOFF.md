@@ -1,3 +1,13 @@
+# Current status: 商品タイプ4軸正規化候補（2026-11-25）
+
+基点066ebb18。共有JSONから分類・色・発泡性・甘辛度を解釈し、白甘口/白甘/白・甘/白・甘口を統合。白は白泡を含み、微発泡はスパークリングから分離。未知表記と競合は肯定へ推測せず、原本/価格/在庫は保持。通常GET、規則、構造化、semantic、facet/row属性を共通classifierへ接続。明示UIは同軸優先・軸間AND、旧typeと新UIの矛盾は拒否。商品名だけを甘辛根拠にしない。DBモデル/LLM wire schema変更なし。
+
+## Next work
+
+親担当の独立SQL/HTTP/UI検証、最終採用と統合判断。今回はlocal build/pure・fake検証のみで、本番DB/Dell/ネットワーク/配布/commit/pushなし。一般否定文は未対応として400、明示「非発泡性」はスティルとして解釈する。source pins/試験結果は同worktreeのtype-source-freeze.safe.jsonを参照する。
+
+---
+
 # Current status: 検索条件正規化・公式根拠・甘辛度の統合候補（2026-11-24）
 
 基点master db533db。国・産地・容量・ヴィンテージを表示facetと原表記検索集合へ分離し、原本と価格・在庫を保持。国別の既知同義産地だけを統合し、右岸12群は共有JSONを参照する。半甘口＝やや甘口は本人確定、甘口・甘い香りとは区別。豊通2商品の専用adapter、別root/版によるsupplier routing、味わいの否定・型・競合判定を統合。新モデル・Migrationは追加しない。

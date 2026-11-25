@@ -95,7 +95,7 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  var plan = SemanticIntentCoverage.TryRulesFallback(sparklingQuery,new(),snapshot);
  Need(plan is {Sparkling:true,Filter:{AvailableOnly:true,VintageRaw:"NV"}});
  var explicitUi = SemanticIntentCoverage.TryRulesFallback(sparklingQuery,new(ProductType:"白",Vintage:"2022"),snapshot);
- Need(explicitUi is {Sparkling:false,Filter:{ProductType:"白",VintageRaw:"2022"}});
+ Need(explicitUi is {Sparkling:true,Filter:{ProductType:"白",VintageRaw:"2022"}});
  Need(SemanticIntentCoverage.TryRulesFallback("シャンパン",new(),snapshot) is null);
  Need(SemanticIntentCoverage.TryRulesFallback("発泡性ワインまたは白ワイン",new(),snapshot) is null);
  Need(SemanticIntentCoverage.TryRulesFallback("1500mlのホワイトワイン",new(),snapshot) is null);
@@ -105,7 +105,7 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
  Need(result is {Mode:"rules",FallbackReason:"dictionary_match"} && interpreter.Calls==0);
  Need(local.LastPlan is {Sparkling:true,Filter:{AvailableOnly:true,VintageRaw:"NV"}});
  var sweetSparkling = await new SemanticSearchService(local,interpreter).SearchAsync(new("辛口のスパークリングワイン"),default);
- Need(sweetSparkling.FallbackReason=="dictionary_match" && local.LastPlan is {Sparkling:true,Taste:"辛口"} && interpreter.Calls==0);
+ Need(sweetSparkling.FallbackReason=="type_attribute_match" && local.LastPlan is {Sparkling:true,Filter:{Sweetness:"辛口"}} && interpreter.Calls==0);
 }
 {
  var plan = NaturalSearch.Parse(new CatalogFilter(Text:"フランスの在庫が有る赤ワインで上代1万円以内"));
@@ -209,6 +209,16 @@ foreach(var (kind,expected) in new[]{("io","bridge_unavailable"),("timeout","bri
   Members=e.GetProperty("Members").EnumerateArray().Select(g=>g.EnumerateArray().Select(x=>x.GetString()).ToArray()).ToArray(),
   Outside=e.GetProperty("Outside").EnumerateArray().Select(x=>x.GetString()).ToArray()};
  Need(System.Text.Json.JsonSerializer.Serialize(ReviewedRightBankScope.Definition)==System.Text.Json.JsonSerializer.Serialize(baseline));
+}
+// Four-axis coverage checks use the same canonical classifier as execution.
+{
+ var typed=new SemanticSearchPlan(new CatalogFilter(Category:"甘味果実酒",Color:"赤"),null,[],[],null,[],false);
+ Need(SemanticIntentCoverage.Check("赤の甘味果実酒",new(),typed).Count==0);
+ Need(SemanticIntentCoverage.Check("白甘口",new(),typed).Contains("explicit_sweetness_not_adopted"));
+ var white=new SemanticSearchPlan(new CatalogFilter(Category:"ワイン",Color:"白",Sweetness:"甘口"),null,[],[],null,[],false);
+ Need(SemanticIntentCoverage.Check("白甘口",new(),white).Count==0);
+ Need(SemanticIntentCoverage.Check("白甘口",new(),white with {Filter=white.Filter with {Sweetness=null}}).Contains("explicit_sweetness_not_adopted"));
+ try {new ExplicitSearchUi(ProductType:"赤",Color:"白").Validate();throw new Exception("conflicting UI accepted");}catch(ArgumentException){checks++;}
 }
 Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{status="passed",checks,realDatabase=false,realModel=false}));
 sealed class CaptureLogger:ILogger<FreeTextSearchService>{

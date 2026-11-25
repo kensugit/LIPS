@@ -28,7 +28,7 @@ function render(){
   selection.append(checkbox);
   const name=el('td');if(r.duplicateMinimumSelected)name.append(el('span','重複あり・少ない在庫を採用','badge'));name.append(el('div',r.productNameJa,'name'),el('div',r.productNameEn,'secondary'),el('div',codeLabel(r),'secondary'));
   const producer=el('td');producer.append(el('div',r.producerNameJa||r.producerNameEn||'記載なし'),el('div',r.producerNameJa?r.producerNameEn:'','secondary'));
-  const country=el('td',r.country||'記載なし');const region=el('td');region.append(el('div',r.region||'記載なし'),el('div',r.productType,'secondary'));
+  const country=el('td',r.country||'記載なし','nowrap');const region=el('td');region.append(el('div',r.region||'記載なし'),el('div','原タイプ：'+(r.productType||'記載なし'),'secondary'));appendTypeAttributes(region,r.typeAttributes);
   const vintage=el('td',(r.vintageLabel??r.vintageRaw)||'年不明','nowrap');const volume=el('td',!r.volumeMl?'規格を確認':r.volumeMl+' ml','nowrap');
   const price=el('td',undefined,'nowrap');price.append(el('div',money(r.referenceRetailPrice)),el('div',r.taxIncluded?'税込':'税抜','secondary'));
   if(r.priceNote){const note=el('div',r.priceNote,'secondary');note.style.whiteSpace='normal';price.append(note)}
@@ -53,7 +53,7 @@ function setSearchPending(pending) {
 
 function searchRequest() {
  const explicitUi={};
- for(const [id,key]of [['supplier','supplier'],['country','country'],['type','productType'],['vintage','vintage']])if($(id).value)explicitUi[key]=$(id).value;
+ for(const [id,key]of [['supplier','supplier'],['country','country'],['type','productType'],['category','category'],['color','color'],['effervescence','effervescence'],['sweetness','sweetness'],['vintage','vintage']])if($(id).value)explicitUi[key]=$(id).value;
  const region=$('region').selectedOptions[0];if($('region').value)explicitUi.region=region?.dataset.region??$('region').value;
  for(const id of ['priceMin','priceMax','volumeMl'])if($(id).value!=='')explicitUi[id]=Number($(id).value);
  if($('available').checked)explicitUi.availableOnly=true;
@@ -68,6 +68,24 @@ function renderRegionFacets(preserveKey=''){
   const option=facetOption({...entry,label});option.value=JSON.stringify([entry.country,entry.value]);option.dataset.region=entry.value;option.dataset.country=entry.country;select.append(option);
  }
  select.value=[...select.options].some(o=>o.value===preserveKey)?preserveKey:'';
+}
+const attributeAxes=[['category','categories','分類'],['color','colors','色'],['effervescence','effervescences','発泡性'],['sweetness','sweetnesses','甘辛度']];
+const attributeText=value=>typeof value==='string'&&value.length>0&&value.length<=200;
+function appendTypeAttributes(parent,attributes){
+ if(!attributes){parent.append(el('div','原タイプの属性分類：未提供','secondary'));return}
+ const lists=['unknownTokens','conflicts'];
+ const valid=attributes.schema==='lips-product-type-attributes/v1'&&attributeAxes.every(([key])=>Object.hasOwn(attributes,key)&&(attributes[key]===null||attributeText(attributes[key])))&&lists.every(key=>Array.isArray(attributes[key])&&attributes[key].length<=100&&attributes[key].every(v=>typeof v==='string'&&v.length<=200));
+ if(!valid||attributes.conflicts.some(key=>!attributeAxes.some(([axis])=>key===axis)||attributes[key]!==null)){parent.append(el('div','原タイプの属性分類：確認できません','secondary'));return}
+ parent.append(el('div','原タイプから分かる属性：'+attributeAxes.map(([key,,label])=>label+'：'+(attributes[key]??'不明')).join(' ／ '),'secondary'));
+ if(attributes.unknownTokens.length)parent.append(el('div','未分類の表記：'+attributes.unknownTokens.join(' / '),'secondary'));
+ if(attributes.conflicts.length)parent.append(el('div','属性の競合：'+attributes.conflicts.map(key=>attributeAxes.find(([axis])=>axis===key)[2]).join(' / '),'secondary'));
+}
+function populateTypeAttributes(response){
+ const facets=response.facets,attributes=facets?.typeAttributes;
+ if(attributes===undefined||attributes===null){for(const[id]of attributeAxes)$(id).disabled=true;$('type-attributes-status').textContent='この接続先から属性の選択肢が提供されていません。原タイプで指定できます。';return}
+ if(attributes.schema!=='lips-product-type-attributes/v1'||attributeAxes.some(([,key])=>!Array.isArray(attributes[key])||attributes[key].length>100||attributes[key].some(e=>!e||typeof e!=='object'||!attributeText(e.value)||!attributeText(e.label))||new Set(attributes[key].map(e=>e.value)).size!==attributes[key].length))throw Error('商品の属性の選択肢を確認できません。ページを再読み込みしてください。');
+ for(const[id,key]of attributeAxes){$(id).disabled=false;for(const entry of attributes[key]){const option=el('option',entry.label);option.value=entry.value;$(id).append(option)}}
+ $('type-attributes-status').textContent='表記の異なる同義タイプは原タイプ欄でまとめて表示します。原表記と未分類・競合は検索結果で確認できます。';
 }
 function populateFacets(response){
  const options=response.options;catalogFacets=response.facets??null;
@@ -90,7 +108,12 @@ function populateFacets(response){
   // Compatible with older servers; no speculative geographic alias merging in the browser.
   for(const [id,key]of [['country','countries'],['region','regions'],['volumeMl','volumesMl'],['vintage','vintages']])for(const value of new Set(options[key]))if(value){const option=el('option',id==='volumeMl'?value+' ml':value);option.value=value;$(id).append(option)}
  }
- for(const value of new Set(options.productTypes))if(value){const option=el('option',value);option.value=value;$('type').append(option)}
+ if(catalogFacets?.productTypes!==undefined){
+  const types=catalogFacets.productTypes;
+  if(!Array.isArray(types)||types.some(e=>!e||typeof e.value!=='string'||!options.productTypes.includes(e.value)||typeof e.label!=='string'||!e.label||!Array.isArray(e.rawValues)||!e.rawValues.length||!e.rawValues.includes(e.value)||e.rawValues.some(v=>typeof v!=='string'||!options.productTypes.includes(v)))||new Set(types.map(e=>e.value)).size!==types.length)throw Error('原タイプの選択肢を確認できません。ページを再読み込みしてください。');
+  for(const entry of types)if(entry.value)$('type').append(facetOption(entry));
+ }else for(const value of new Set(options.productTypes))if(value){const option=el('option',value);option.value=value;$('type').append(option)}
+ populateTypeAttributes(response);
 }
 $('country').addEventListener('change',()=>renderRegionFacets());
 $('region').addEventListener('change',()=>{
@@ -101,7 +124,8 @@ const fallbackLabels={model_disabled:'AI解釈は無効です。',query_empty:'�
 function adoptedConditions(conditions) {
  const c=conditions||{},f=c.filter||{},parts=[];
  if(c.supplier)parts.push('取引先：'+(supplierNames.get(c.supplier)||c.supplier));
- for(const [key,label]of [['country','国'],['region','産地'],['productType','タイプ'],['vintageRaw','年']])if(f[key])parts.push(label+'：'+f[key]);
+ for(const [key,label]of [['country','国'],['region','産地'],['productType','原タイプ'],['vintageRaw','年']])if(f[key])parts.push(label+'：'+f[key]);
+ for(const[key,,label]of attributeAxes)if(f[key])parts.push(label+'：'+f[key]);
  if(f.volumeMl!=null)parts.push('容量：'+f.volumeMl+' ml');
  if(f.priceMin!=null)parts.push('希望小売価格の下限（税抜）：'+money(f.priceMin));
  if(f.priceMax!=null)parts.push('希望小売価格の上限（税抜）：'+money(f.priceMax));
@@ -111,8 +135,8 @@ function adoptedConditions(conditions) {
  if(c.geographyCoverage)parts.push(c.geographyCoverage);
  if(c.jan)parts.push('JAN/GTIN：'+c.jan);
  if(c.grape)parts.push('品種：'+c.grape.name+(c.grape.mode==='predominant'?'（過半または主体の根拠あり）':'（含有の根拠あり）'));
- if(c.taste)parts.push('味わい：'+c.taste+'（原本の記載）');
- if(c.sparkling)parts.push('発泡タイプ：スパークリング');
+ if(c.taste&&!(f.sweetness===c.taste))parts.push('味わい：'+c.taste+'（原本の記載）');
+ if(c.sparkling&&!f.effervescence)parts.push('発泡タイプ：スパークリング');
  if(c.parsedConditions?.length)parts.push(...c.parsedConditions);
  return [...new Set(parts)];
 }
@@ -134,7 +158,11 @@ function appendImporterEvidence(parent,evidence) {
 }
 async function freeTextSearch() {
  const response=await fetch('/api/free-text-search/search',{method:'POST',headers:{'Content-Type':'application/json','X-Catalog-Action':'local-demo'},body:JSON.stringify(searchRequest())});
- if(!response.ok)throw Error('検索結果を取得できません（'+response.status+'）。条件を確認して再検索してください。');
+ if(!response.ok){
+  let reason=null;try{reason=(await response.json()).reason}catch{}
+  const failure=Error(reason==='conflicting_type_attributes'?'分類・色・発泡性・甘辛度と原タイプの指定が矛盾しています。条件を確認してください。':'検索結果を取得できません（'+response.status+'）。条件を確認して再検索してください。');
+  failure.preserveResults=reason==='conflicting_type_attributes';throw failure;
+ }
  return response.json();
 }
 
@@ -153,7 +181,7 @@ function showSearchResults(result) {
   : 'チェックした商品だけをCSV出力します。再検索・ページ切り替え後も選択は保持され、追加できます。';
  const conditions=adoptedConditions(result.conditions);
  $('interpreted').textContent=(awaitingConditions?'確認中の検索条件：':'採用した検索条件：')+(conditions.length?conditions.join(' ／ '):awaitingConditions?'未確定':'すべて');
- const clarificationLabels={explicit_red_not_adopted:'赤の条件',explicit_white_not_adopted:'白の条件',explicit_stock_not_adopted:'在庫条件',explicit_country_not_adopted:'国の条件',explicit_grape_not_adopted:'品種の条件',explicit_predominance_not_adopted:'主体の条件',geography_scope_unverified:'地理的な範囲',explicit_price_min_not_adopted:'価格下限',explicit_price_max_not_adopted:'価格上限',explicit_volume_not_adopted:'容量',explicit_vintage_not_adopted:'年',price_scope_unverified:'価格の意味',explicit_conditions_unverified:'明示条件',unparsed_terms:'未解釈の条件'};
+ const clarificationLabels={explicit_red_not_adopted:'赤の条件',explicit_white_not_adopted:'白の条件',explicit_stock_not_adopted:'在庫条件',explicit_country_not_adopted:'国の条件',explicit_grape_not_adopted:'品種の条件',explicit_predominance_not_adopted:'主体の条件',geography_scope_unverified:'地理的な範囲',explicit_price_min_not_adopted:'価格下限',explicit_price_max_not_adopted:'価格上限',explicit_volume_not_adopted:'容量',explicit_vintage_not_adopted:'年',price_scope_unverified:'価格の意味',explicit_conditions_unverified:'明示条件',conflicting_type_attributes:'分類・色・発泡性・甘辛度と原タイプの組み合わせ',unparsed_terms:'未解釈の条件'};
  $('search-mode').textContent=result.mode==='needsClarification'
   ? '条件を確定できないため検索していません。'+(result.clarificationReasons||[]).map(x=>clarificationLabels[x]||fallbackLabels[x]||'AI解釈を確認できません').join(' ／ ')+(result.unparsedTerms?.length?'。未解釈：'+result.unparsedTerms.join(' ／ '):'')+'。文章を具体化するか、画面で条件を指定してください。'
   : result.fallbackReason==='dictionary_match'?'辞書による検索（画面の明示条件を優先）'
@@ -184,6 +212,7 @@ async function search() {
   error('価格の下限は上限以下にしてください。');
   return;
  }
+ const previousInterpretation=$('interpreted').textContent;
  $('interpreted').textContent = '';
  $('search-mode').textContent = '';
  $('csv-status').textContent = '選択は再検索後も保持されます。別の検索結果から商品を追加できます。';
@@ -191,7 +220,7 @@ async function search() {
  try {
   showSearchResults(await freeTextSearch());
  } catch (e) {
-  showSearchFailure(e.message);
+  if(e.preserveResults){error(e.message);$('interpreted').textContent=previousInterpretation;$('search-mode').textContent='条件が矛盾しているため検索していません。前回の検索結果と選択を保持しています。'}else showSearchFailure(e.message);
  } finally {
   setSearchPending(false);
  }
@@ -226,7 +255,7 @@ function appendSourcePrices(row,unadopted){
  for(const price of row.PriceComponents||[]){const unit=units[price.Unit]||price.Unit||'単位未確認',tax=price.TaxIncluded===true?'税込':price.TaxIncluded===false?'税抜':'税区分未確認';section.append(el('p',(labels[price.Kind]||price.Kind||'種類未確認')+'：'+money(price.Amount)+'（'+tax+'・'+unit+'） 原表記：'+(price.Raw??'記載なし')));}
  $('detail-body').append(section);
 }
-async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',sourceSku(r)||'記載なし（内部IDで管理）'],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['年号の原表記',row.VintageRaw||'記載なし'],['希望小売の原表記',r.codeKind==='InternalIdentity'?'単位確認中（下記の原典価格を参照）':row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',r.codeKind==='InternalIdentity'?'記載なし':(row.OriginalSupplierProductCode||row.SupplierProductCode)],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',r.codeKind==='InternalIdentity'?'原典の商品表記を保持し、内部IDで対応付けています。':(row.Description||'記載なし')]])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl);if(r.codeKind==='InternalIdentity'||row.PriceComponents?.length)appendSourcePrices(row,r.codeKind==='InternalIdentity');if(row.DuplicateMinimumSelected){const dup=el('section');dup.append(el('h3','重複あり・少ない在庫を採用'),el('p','数量は加算していません。両方の原典行を保持しています。'));for(const occurrence of row.Occurrences||[]){const item=el('details');item.append(el('summary',occurrence.Sheet+'!'+occurrence.Row+'：'+occurrence.Inventory.Quantity+'本'+(occurrence.Row===row.SourceRow?'（採用）':'')));const cells=el('table');for(const[cell,value]of Object.entries(JSON.parse(occurrence.RawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));cells.append(tr)}item.append(cells);dup.append(item)}$('detail-body').append(dup);}$('detail-body').append(details);appendImporterEvidence($('detail-body'),r.importerEvidence);if(r.supplierProductId&&(r.codeKind==='InternalIdentity'||r.supplierName.includes('ENEOS'))){const sources=await json('/api/products/'+r.supplierProductId+'/source-inventory');const section=el('section');section.append(el('h3','同じ基準日の原本別在庫（数量は加算しません）'),el('p','一覧の数量：'+(sources.quantity??'不明')));for(const source of sources.sources)for(const evidence of source.rows)section.append(el('p',source.fileName+' / '+evidence.sheet+'!'+evidence.row+'：'+(evidence.inventory.quantity??'不明')+' / 原表記 '+(evidence.inventory.rawValue||'空欄')));$('detail-body').append(section);}$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
+async function detail(r,button){error('');$('busy').hidden=false;try{const d=await json(`/api/evidence/${r.sourceDocumentId}/${encodeURIComponent(r.sku)}`);const row=JSON.parse(d.extractedRowJson);$('detail-body').replaceChildren();$('detail-title').textContent=row.ProductNameJa;const dl=el('dl');for(const [k,v] of [['仕入先SKU',sourceSku(r)||'記載なし（内部IDで管理）'],['元ファイル',d.fileName],['在庫表の日付',d.observedAt.slice(0,10)],['シート / 行',d.sheetName+'!'+d.rowNumber],['タイプの原表記',r.productType||'記載なし'],['年号の原表記',row.VintageRaw||'記載なし'],['希望小売の原表記',r.codeKind==='InternalIdentity'?'単位確認中（下記の原典価格を参照）':row.PriceRaw],['特価仕入価格（税抜）',r.specialPurchasePrice==null?'記載なし':money(r.specialPurchasePrice)],['在庫の原表記',row.Inventory.RawValue||'空欄（不明）'],['JAN',row.JanCodes.join(' / ')||'記載なし'],['品種',row.Grapes||'記載なし'],['原本の商品コード',r.codeKind==='InternalIdentity'?'記載なし':(row.OriginalSupplierProductCode||row.SupplierProductCode)],['価格・規格の注意',row.PriceNote||'記載なし'],['商品コメント',r.codeKind==='InternalIdentity'?'原典の商品表記を保持し、内部IDで対応付けています。':(row.Description||'記載なし')]])dl.append(el('dt',k),el('dd',v));const details=el('details');details.append(el('summary','元のセル内容を見る'));const table=el('table');for(const [cell,value]of Object.entries(JSON.parse(d.rawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));table.append(tr)}details.append(table);$('detail-body').append(dl);if(r.codeKind==='InternalIdentity'||row.PriceComponents?.length)appendSourcePrices(row,r.codeKind==='InternalIdentity');if(row.DuplicateMinimumSelected){const dup=el('section');dup.append(el('h3','重複あり・少ない在庫を採用'),el('p','数量は加算していません。両方の原典行を保持しています。'));for(const occurrence of row.Occurrences||[]){const item=el('details');item.append(el('summary',occurrence.Sheet+'!'+occurrence.Row+'：'+occurrence.Inventory.Quantity+'本'+(occurrence.Row===row.SourceRow?'（採用）':'')));const cells=el('table');for(const[cell,value]of Object.entries(JSON.parse(occurrence.RawCellsJson))){const tr=el('tr');tr.append(el('th',cell),el('td',value));cells.append(tr)}item.append(cells);dup.append(item)}$('detail-body').append(dup);}$('detail-body').append(details);appendTypeAttributes($('detail-body'),r.typeAttributes);appendImporterEvidence($('detail-body'),r.importerEvidence);if(r.supplierProductId&&(r.codeKind==='InternalIdentity'||r.supplierName.includes('ENEOS'))){const sources=await json('/api/products/'+r.supplierProductId+'/source-inventory');const section=el('section');section.append(el('h3','同じ基準日の原本別在庫（数量は加算しません）'),el('p','一覧の数量：'+(sources.quantity??'不明')));for(const source of sources.sources)for(const evidence of source.rows)section.append(el('p',source.fileName+' / '+evidence.sheet+'!'+evidence.row+'：'+(evidence.inventory.quantity??'不明')+' / 原表記 '+(evidence.inventory.rawValue||'空欄')));$('detail-body').append(section);}$('detail').showModal();$('detail').addEventListener('close',()=>button.focus(),{once:true})}catch(e){error(e.message)}finally{$('busy').hidden=true}}
 function renderSelection() {
  const body=$('selected-rows');body.replaceChildren();
  $('selected-count').textContent=`${selectedProducts.size.toLocaleString()}件`;
@@ -250,7 +279,7 @@ $('example').addEventListener('click',()=>{
  $('text').value='';$('priceMin').value='';$('volumeMl').value='';$('vintage').value='';
  $('country').value=catalogFacets?.countries.find(c=>c.label==='フランス')?.value??'フランス';renderRegionFacets();
  if(catalogFacets){const option=[...$('region').options].find(o=>o.textContent==='ブルゴーニュ');$('region').value=option?.value??''}else $('region').value='ブルゴーニュ';
- $('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search();
+ $('type').value='';for(const[id]of attributeAxes)$(id).value='';if(!$('category').disabled)$('category').value='ワイン';if(!$('color').disabled)$('color').value='赤';else $('type').value='赤';$('priceMax').value=10000;$('available').checked=true;search();
 });
 $('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('close').onclick=()=>$('detail').close();
 (async()=>{setSearchPending(true);try{

@@ -142,6 +142,7 @@ public static class SemanticSearchContract
             f.PriceMin, f.PriceMax, filter.AvailableOnly, f.Grape), request.Options);
         Need(filter.Limit is >= 1 and <= 2000 && !(filter.PriceMin < 0) && !(filter.PriceMax < 0) &&
             !(filter.PriceMin > filter.PriceMax), "semantic_merged_range");
+        filter=ProductTypeVocabulary.MergeUi(ui,filter with {ProductType=f.ProductType}) with {ProductType=filter.ProductType};
         return new(filter, supplier, f.Keywords.ToArray(), regions, f.Grape, r.UnparsedTerms.ToArray(), r.UnparsedTerms.Count != 0);
     }
 }

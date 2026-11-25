@@ -89,7 +89,7 @@ app.MapGet("/api/search", async (HttpRequest request, CatalogSearchDbContext db,
     }
     if (request.Query.Any(x => x.Value.ToString().Length > 200)) return Results.BadRequest(new { error = "検索条件は200文字以内で入力してください。" });
     var filter = new CatalogFilter(Value("country"), Value("region"), Value("type"), max,
-        Value("available") == "true", Value("text"), 2000, min, volume, Value("vintage"));
+        Value("available") == "true", Value("text"), 2000, min, volume, Value("vintage"), Value("category"), Value("color"), Value("effervescence"), Value("sweetness"));
     try
     {
         var interpretation = await new CatalogQuery(db).InterpretAsync(filter, ct);

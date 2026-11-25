@@ -75,11 +75,11 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
         var f = parsed.Filter;
         return parsed with
         {
-            Filter = ui with { Country = Prefer(ui.Country, f.Country), Region = Prefer(ui.Region, f.Region), ProductType = Prefer(ui.ProductType, f.ProductType), VolumeMl = ui.VolumeMl ?? f.VolumeMl, VintageRaw = Prefer(ui.VintageRaw, f.VintageRaw), PriceMin = ui.PriceMin ?? f.PriceMin, PriceMax = ui.PriceMax ?? f.PriceMax, AvailableOnly = ui.AvailableOnly || f.AvailableOnly, Text = f.Text },
+            Filter = ProductTypeVocabulary.MergeUi(ui,ui with { Country = Prefer(ui.Country, f.Country), Region = Prefer(ui.Region, f.Region), ProductType = Prefer(ui.ProductType, f.ProductType), VolumeMl = ui.VolumeMl ?? f.VolumeMl, VintageRaw = Prefer(ui.VintageRaw, f.VintageRaw), PriceMin = ui.PriceMin ?? f.PriceMin, PriceMax = ui.PriceMax ?? f.PriceMax, AvailableOnly = ui.AvailableOnly || f.AvailableOnly, Text = f.Text, Category=f.Category, Color=f.Color, Effervescence=f.Effervescence, Sweetness=f.Sweetness, TypePredicate=f.TypePredicate },sparkling:parsed.Sparkling||parsed.Champagne),
             MinExclusive = ui.PriceMin is null && parsed.MinExclusive,
             MaxExclusive = ui.PriceMax is null && parsed.MaxExclusive,
             Champagne = string.IsNullOrWhiteSpace(ui.Region) && string.IsNullOrWhiteSpace(ui.ProductType) && parsed.Champagne,
-            Sparkling = string.IsNullOrWhiteSpace(ui.ProductType) && parsed.Sparkling
+            Sparkling = (ui.TypePredicate??ProductTypeVocabulary.Resolve(ui)).Effervescence is null && parsed.Sparkling
         };
     }
 
@@ -105,17 +105,17 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
             var matchingRegions = CatalogFacetVocabulary.MatchingRegions(rawRegions.Select(x => (x.Country, x.Region)), filter.Country, requestedRegions);
             query = query.Where(x => matchingRegions.Contains(x.Region));
         }
-        if (!string.IsNullOrWhiteSpace(filter.ProductType))
-            query = natural.Sparkling || natural.Champagne || semantic?.Sparkling == true
-                ? query.Where(x => x.ProductType.Contains(filter.ProductType))
-                : query.Where(x => x.ProductType == filter.ProductType);
-        if (semantic?.Sparkling == true)
+        var typePredicate = filter.TypePredicate ?? ProductTypeVocabulary.Resolve(filter);
+        if(typePredicate.Effervescence is null&&(natural.Sparkling||natural.Champagne||semantic?.Sparkling==true))typePredicate=typePredicate with {Effervescence="スパークリング"};
+        var sweetness=typePredicate.Sweetness??WineTasteVocabulary.ResolveSweetness(semantic?.Taste??"");
+        var flavor=semantic?.Taste is { } requestedTaste&&WineTasteVocabulary.ResolveSweetness(requestedTaste) is null?requestedTaste:null;
+        if(typePredicate.Category is not null||typePredicate.Color is not null||typePredicate.Effervescence is not null||typePredicate.ExactRaw is not null)
         {
-            var sparklingTypes = CatalogSearchVocabulary.SparklingSourceTypes.ToArray();
-            query = query.Where(x => sparklingTypes.Contains(x.ProductType));
+            var rawTypes=await db.SupplierProducts.AsNoTracking().Select(x=>x.ProductType).Distinct().ToListAsync(ct);
+            var matchingTypes=rawTypes.Where(raw=>ProductTypeVocabulary.Matches(raw,typePredicate,includeSweetness:false)).ToArray();
+            query=query.Where(x=>matchingTypes.Contains(x.ProductType));
         }
-        if (natural.Sparkling) query = query.Where(x => x.ProductType.Contains("泡") || x.ProductType == "スパークリング");
-        if (natural.Champagne) query = query.Where(x => (x.Region == "シャンパーニュ" || x.Region == "シャンパーニュ地方" || x.Region == "Champagne") && (x.ProductType.Contains("泡") || x.ProductType == "スパークリング"));
+        if(natural.Champagne)query=query.Where(x=>x.Region=="シャンパーニュ"||x.Region=="シャンパーニュ地方"||x.Region=="Champagne");
         if (filter.VolumeMl is not null) query = query.Where(x => x.VolumeMl == filter.VolumeMl);
         if (!string.IsNullOrWhiteSpace(filter.VintageRaw))
         {
@@ -157,8 +157,9 @@ public sealed class CatalogQuery(CatalogSearchDbContext db, IImporterEnrichmentR
             ;
         // Evaluate evidence before the result limit. A matching row after the first N candidates must remain eligible.
         var selected = await SemanticResultSelector.SelectAsync(
-            (semantic?.Grape is null && semantic?.Taste is null ? matches.Take(filter.Limit) : matches).AsAsyncEnumerable(),
-            x => (semantic?.Taste is not { } taste || WineTasteEvidence.Matches(x.ExtractedRowJson, taste)) &&
+            (semantic?.Grape is null && sweetness is null && flavor is null ? matches.Take(filter.Limit) : matches).AsAsyncEnumerable(),
+            x => (sweetness is null || WineTasteEvidence.Matches(x.ExtractedRowJson, sweetness, x.Result.ProductType)) &&
+                (flavor is null || WineTasteEvidence.Matches(x.ExtractedRowJson, flavor, x.Result.ProductType)) &&
                 (semantic?.Grape is not { } grape || AcceptGrape(x.Code, x.Result, x.ExtractedRowJson, grape, counters!)), filter.Limit, ct);
         return selected.Select(x => x.Result with { AbundantInventory = HasAbundantInventory(x.ExtractedRowJson), SpecialPurchasePrice = SpecialPurchasePrice.Read(x.Code, x.RawCellsJson), DuplicateMinimumSelected = x.Code == "LA_VINEE" && HasDuplicateSelection(x.ExtractedRowJson),
             ImporterEvidence = counters is not null && counters.Sources.TryGetValue(x.Result.SupplierProductId, out var source) ? source : null }).ToArray();

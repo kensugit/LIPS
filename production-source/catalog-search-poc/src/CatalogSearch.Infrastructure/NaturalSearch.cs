@@ -118,6 +118,20 @@ public static class NaturalSearch
             return marker;
         });
 
+        text = Replace(text, ProductTypeVocabulary.QueryPattern, m =>
+        {
+            var a=ProductTypeVocabulary.QueryTerms(m.Groups["typeTerms"].Value);
+            if(a is null)throw new ArgumentException("type_attribute_clarification_required");
+            if(a.Category=="ワイン"&&a.Color is null&&a.Effervescence is null&&a.Sweetness is null&&m.Value.StartsWith("の",StringComparison.Ordinal)&&m.Index>0&&!char.IsWhiteSpace(text[m.Index-1])&&text[m.Index-1]!='\u001f')return m.Value;
+            var explicitType=input.TypePredicate??ProductTypeVocabulary.Resolve(input);
+            if(a.Conflicts.Any(axis => axis switch {"category"=>explicitType.Category is null,"color"=>explicitType.Color is null,"effervescence"=>explicitType.Effervescence is null,"sweetness"=>explicitType.Sweetness is null,_=>true}))throw new ArgumentException("conflicting_type_attributes");
+            foreach(var axis in new (string? Before,string? After,string? Explicit)[]{(filter.Category,a.Category,explicitType.Category),(filter.Color,a.Color,explicitType.Color),(filter.Effervescence,a.Effervescence,explicitType.Effervescence),(filter.Sweetness,a.Sweetness,explicitType.Sweetness)})
+                if(axis.Before is not null&&axis.After is not null&&axis.Before!=axis.After&&axis.Explicit is null)throw new ArgumentException("conflicting_type_attributes");
+            var lower=filter with {ProductType=a.Category=="ワイン"?a.Color:filter.ProductType,Category=a.Category??filter.Category,Color=a.Color??filter.Color,Effervescence=a.Effervescence??filter.Effervescence,Sweetness=a.Sweetness??filter.Sweetness,TypePredicate=null};
+            filter=ProductTypeVocabulary.MergeUi(input,lower) with {ProductType=input.ProductType??lower.ProductType};
+            sparkling=filter.Effervescence=="スパークリング";parsed=true;return marker;
+        });
+
         text = Replace(text, @"(?<![a-z0-9])(?:" + CatalogSearchVocabulary.SparklingPattern +
             @")(?![a-z0-9])|(?:^|[\s\u001f、,]|の|で|と)泡(?=の|で|を|と|[\s\u001f、,。]|$)", _ =>
         {
@@ -180,7 +194,7 @@ public static class NaturalSearch
 
         if (parsed)
         {
-            if (Regex.IsMatch(original, @"税込|仕入(?:れ)?価格|卸価格|以外|除く|ではない|または|もしくは|あるいは"))
+            if (Regex.IsMatch(original, @"税込|仕入(?:れ)?価格|卸価格|以外|除く|ではない|ではありません|でない|じゃない|または|もしくは|あるいは"))
                 throw new ArgumentException("税込・仕入価格や除外・選択条件には未対応です。税抜希望小売価格と、すべて満たす条件で検索してください。");
             // Only remove particles at extracted-condition boundaries, never inside product names.
             var parts = text.Split(marker).Select(part =>
@@ -197,6 +211,10 @@ public static class NaturalSearch
         }
         // Plain keyword/SKU searches retain their original spelling and wildcard escaping.
         if (filter.PriceMin > filter.PriceMax || (filter.PriceMin is not null && filter.PriceMin == filter.PriceMax && (minExclusive || maxExclusive))) throw new ArgumentException("価格条件が矛盾しています。下限と上限を確認してください。");
+        if(filter.Category is { } category)conditions.Add($"分類 {category}");
+        if(filter.Color is { } color)conditions.Add($"色 {color}");
+        if(filter.Effervescence is { } effervescence)conditions.Add($"発泡性 {effervescence}");
+        if(filter.Sweetness is { } sweetness)conditions.Add($"甘辛度 {sweetness}");
         if (filter.VolumeMl is { } volume) conditions.Add($"容量 {volume}ml");
         if (filter.PriceMin is { } min) conditions.Add($"税抜希望小売 {min.ToString("#,0.##", CultureInfo.InvariantCulture)}円{(minExclusive ? "超" : "以上")}");
         if (filter.PriceMax is { } max) conditions.Add($"税抜希望小売 {max.ToString("#,0.##", CultureInfo.InvariantCulture)}円{(maxExclusive ? "未満" : "以下")}");

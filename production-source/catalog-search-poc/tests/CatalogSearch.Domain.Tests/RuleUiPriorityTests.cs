@@ -21,13 +21,22 @@ public class RuleUiPriorityTests
     }
 
     [Fact]
-    public void ExplicitStillTypeClearsParsedSparklingDomainRestriction()
+    public void ExplicitColorPreservesParsedSparklingAxis()
     {
         var parsed = new NaturalSearchPlan(new CatalogFilter(ProductType: "泡"), true, [], Sparkling: true);
         var actual = CatalogQuery.MergeRulesWithUi(parsed, new CatalogFilter(ProductType: "白"));
-        Assert.False(actual.Sparkling);
+        Assert.True(actual.Sparkling);
+        Assert.Equal("スパークリング",actual.Filter.Effervescence);
         Assert.False(actual.Champagne);
         Assert.Equal("白", actual.Filter.ProductType);
+    }
+
+    [Fact]
+    public void ExplicitStillAxisClearsParsedSparkling()
+    {
+        var parsed=new NaturalSearchPlan(new CatalogFilter(ProductType:"泡"),false,[],Sparkling:true);
+        var actual=CatalogQuery.MergeRulesWithUi(parsed,new CatalogFilter(Effervescence:"スティル"));
+        Assert.False(actual.Sparkling);Assert.Equal("スティル",actual.Filter.Effervescence);
     }
 
     [Fact]

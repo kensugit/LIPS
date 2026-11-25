@@ -32,7 +32,10 @@ public sealed class ImportService(IWorkbookSource source, IWorkbookContentParser
     }
 }
 public sealed record CatalogFilter(string? Country = null, string? Region = null, string? ProductType = null,
-    decimal? PriceMax = null, bool AvailableOnly = false, string? Text = null, int Limit = 100, decimal? PriceMin = null, int? VolumeMl = null, string? VintageRaw = null);
+    decimal? PriceMax = null, bool AvailableOnly = false, string? Text = null, int Limit = 100, decimal? PriceMin = null, int? VolumeMl = null, string? VintageRaw = null, string? Category = null, string? Color = null, string? Effervescence = null, string? Sweetness = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore] public ProductTypePredicate? TypePredicate { get; init; }
+}
 public sealed record CatalogResult(string Sku, string ProductNameJa, string ProductNameEn,
     string ProducerNameJa, string ProducerNameEn, int? Vintage, string VintageRaw, int VolumeMl,
     decimal? ReferenceRetailPrice, bool TaxIncluded, InventoryStatus Inventory, int? Quantity,
@@ -45,6 +48,7 @@ public sealed record CatalogResult(string Sku, string ProductNameJa, string Prod
     public string? OriginalSupplierProductCode { get; init; }
     public bool DuplicateMinimumSelected { get; init; }
     public string VintageLabel => VintageNotation.Normalize(VintageRaw);
+    public ProductTypeAttributes TypeAttributes => ProductTypeVocabulary.Classify(ProductType);
     public string SupplierName { get; init; } = "";
     public decimal? SpecialPurchasePrice { get; init; }
 }

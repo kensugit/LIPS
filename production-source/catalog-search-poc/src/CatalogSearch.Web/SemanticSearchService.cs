@@ -131,7 +131,8 @@ public static class SemanticIntentCoverage
             var response = new SemanticSearchInterpretation(request.Schema, request.RequestId, request.CatalogVersion, request.PromptVersion,
                 "rules", "existing-natural-search", new([], null, f.Country, [], f.ProductType, f.VolumeMl, f.VintageRaw,
                     Price(f.PriceMin), Price(f.PriceMax), f.AvailableOnly, null), []);
-            var plan = SemanticSearchContract.Merge(request, ui.Filter, ui.Supplier, response) with { Sparkling = rules.Sparkling && ui.ProductType is null };
+            var merged = SemanticSearchContract.Merge(request, ui.Filter, ui.Supplier, response);
+            var plan = merged with { Filter=ProductTypeVocabulary.MergeUi(ui.Filter,merged.Filter with {Category=f.Category,Color=f.Color,Effervescence=f.Effervescence,Sweetness=f.Sweetness,TypePredicate=null},sparkling:rules.Sparkling), Sparkling = rules.Sparkling && ui.Filter.TypePredicate?.Effervescence is null };
             return Check(query, ui, plan).Count == 0 ? plan : null;
         }
         catch (Exception ex) when (ex is ArgumentException or OverflowException or RegexMatchTimeoutException) { return null; }
@@ -141,11 +142,6 @@ public static class SemanticIntentCoverage
         var errors = new List<string>(); var text = query.Normalize(NormalizationForm.FormKC);
         bool Has(string pattern) => Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
         var f = plan.Filter;
-        if (ui.ProductType is null)
-        {
-            if (Has("赤(?:ワイン)?") && f.ProductType is not ("赤" or "赤ワイン")) errors.Add("explicit_red_not_adopted");
-            if (Has("白(?:ワイン)?") && f.ProductType is not ("白" or "白ワイン")) errors.Add("explicit_white_not_adopted");
-        }
         if (ui.AvailableOnly is null && Has("在庫(?:が)?(?:有る|ある|有り|あり)") && !f.AvailableOnly) errors.Add("explicit_stock_not_adopted");
         if (ui.Country is null && Has("イタリア|\\bItaly\\b") && f.Country is not ("イタリア" or "ｲﾀﾘｱ" or "Italy")) errors.Add("explicit_country_not_adopted");
         if (ui.Country is null && Has(@"南アフリカ|\bSouth Africa\b") && f.Country is not ("南アフリカ" or "South Africa")) errors.Add("explicit_country_not_adopted");
@@ -160,6 +156,12 @@ public static class SemanticIntentCoverage
         try
         {
             var rules = NaturalSearch.Parse(new CatalogFilter(Text: text));
+            var requested=ProductTypeVocabulary.Resolve(rules.Filter,false);
+            var explicitType=ui.Filter.TypePredicate??ProductTypeVocabulary.Resolve(ui.Filter);
+            var adopted=f.TypePredicate??ProductTypeVocabulary.Resolve(f,false);
+            adopted=adopted with {Effervescence=adopted.Effervescence??(plan.Sparkling?"スパークリング":null),Sweetness=adopted.Sweetness??WineTasteVocabulary.ResolveSweetness(plan.Taste??"")};
+            foreach(var axis in new (string Name,string? Requested,string? Adopted,string? Explicit)[]{("category",requested.Category,adopted.Category,explicitType.Category),("color",requested.Color,adopted.Color,explicitType.Color),("effervescence",requested.Effervescence,adopted.Effervescence,explicitType.Effervescence),("sweetness",requested.Sweetness,adopted.Sweetness,explicitType.Sweetness)})
+                if(axis.Explicit is null&&axis.Requested is not null&&axis.Requested!=axis.Adopted)errors.Add("explicit_"+axis.Name+"_not_adopted");
             if (ui.PriceMin is null && rules.Filter.PriceMin is { } min && (f.PriceMin != min || rules.MinExclusive)) errors.Add("explicit_price_min_not_adopted");
             if (ui.PriceMax is null && rules.Filter.PriceMax is { } max && (f.PriceMax != max || rules.MaxExclusive)) errors.Add("explicit_price_max_not_adopted");
             if (ui.VolumeMl is null && rules.Filter.VolumeMl is { } volume && f.VolumeMl != volume) errors.Add("explicit_volume_not_adopted");
@@ -198,6 +200,8 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
         async Task<SemanticUiResult> Execute(SemanticSearchPlan accepted, string? fallbackReason = null, JapaneseWineDictionary.Match? dictionary = null)
         {
             accepted.RequireExecutable();
+            var adopted=ProductTypeVocabulary.MergeUi(ui.Filter,accepted.Filter,accepted.Taste,accepted.Sparkling);
+            accepted=accepted with {Filter=adopted,Sparkling=adopted.Effervescence=="スパークリング",Taste=WineTasteVocabulary.ResolveSweetness(accepted.Taste??"") is not null?adopted.Sweetness:accepted.Taste};
             await using var read = await store.BeginReadAsync(ct);
             var current = await read.SnapshotAsync(ct);
             if (current.Version != initial.Version) return Clarify("catalog_changed");
@@ -218,6 +222,13 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
             var rules = SemanticIntentCoverage.TryRulesFallback(input.Query, ui, initial);
             return rules is null ? Clarify(reason) : await Execute(rules, reason);
         }
+        if(ProductTypeVocabulary.QueryTerms(input.Query) is { } typeQuery)
+        {
+            var explicitType=ui.Filter.TypePredicate!;
+            if(typeQuery.Conflicts.Any(axis=>axis switch {"category"=>explicitType.Category is null,"color"=>explicitType.Color is null,"effervescence"=>explicitType.Effervescence is null,"sweetness"=>explicitType.Sweetness is null,_=>true}))return Clarify("conflicting_type_attributes");
+            var typed=ui.Filter with {ProductType=ui.ProductType??(typeQuery.Category=="ワイン"?typeQuery.Color:null),Category=typeQuery.Category,Color=typeQuery.Color,Effervescence=typeQuery.Effervescence,Sweetness=typeQuery.Sweetness,TypePredicate=null};
+            return await Execute(new SemanticSearchPlan(ProductTypeVocabulary.MergeUi(ui.Filter,typed),ui.Supplier,[],[],null,[],false) {Taste=typeQuery.Sweetness},"type_attribute_match");
+        }
         if (!ReviewedRightBankScope.Requested(input.Query) && !input.Query.Contains("左岸", StringComparison.Ordinal) &&
             JapaneseWineDictionary.Interpret(input.Query, initial.Options) is { } dictionary)
         {
@@ -232,7 +243,7 @@ public sealed class SemanticSearchService(ISemanticSearchStore store, ISemanticI
             if (dictionary.PlaceLabel is not null && dictionary.Regions.Length is 0 or > 128) return Clarify("dictionary_region_not_bound");
             var filter = ui.Filter with { Country = ui.Country ?? dictionary.Countries.FirstOrDefault(), ProductType = ui.ProductType ?? dictionary.ProductType };
             var dictionaryPlan = new SemanticSearchPlan(filter, ui.Supplier, [], dictionary.Regions, dictionary.Grape, [], false) {
-                Taste = dictionary.Taste, Sparkling = dictionary.Sparkling && ui.ProductType is null
+                Taste = dictionary.Taste, Sparkling = dictionary.Sparkling && ui.Filter.TypePredicate?.Effervescence is null
             };
             return await Execute(dictionaryPlan, "dictionary_match", dictionary);
         }

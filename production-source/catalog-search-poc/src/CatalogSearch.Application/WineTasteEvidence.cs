@@ -26,7 +26,7 @@ public static class WineTasteEvidence
 
     public static bool Supports(string taste) => WineTasteVocabulary.ResolveSweetness(taste) is not null || Flavors.ContainsKey(taste);
 
-    public static bool Matches(string json, string taste)
+    public static bool Matches(string json, string taste, string? typeColumn = null)
     {
         if (json.Length > 262144 || !Supports(taste)) return false;
         taste=WineTasteVocabulary.ResolveSweetness(taste)??taste;
@@ -50,12 +50,14 @@ public static class WineTasteEvidence
             if (clauses.Length > 256) return false;
             if (Sweetness.Contains(taste))
             {
+                var type=ProductTypeVocabulary.Classify(typeColumn);
+                if(type.Conflicts.Contains("sweetness")||type.UnknownTokens.Any(t=>t is "中辛" or "中辛口" or "半辛口" or "中甘口"))return false;
                 if(explicitStyle.Length>0)explicitStyle=WineTasteVocabulary.ResolveSweetness(explicitStyle)??explicitStyle;
                 if (explicitStyle.Length > 0 && !Sweetness.Contains(explicitStyle)) return false;
                 var claims = clauses.Where(c => !IsUncertain(c))
                     .Select(c => StyleAssertion.Match(c)).Where(m => m.Success)
                     .Select(m => WineTasteVocabulary.ResolveSweetness(m.Groups["style"].Value)??m.Groups["style"].Value).Distinct(StringComparer.Ordinal).ToArray();
-                var styles = claims.Concat(explicitStyle.Length == 0 ? [] : new[] { explicitStyle }).Distinct(StringComparer.Ordinal).ToArray();
+                var styles = claims.Concat(explicitStyle.Length == 0 ? [] : new[] { explicitStyle }).Concat(type.Sweetness is null ? [] : new[] { type.Sweetness }).Distinct(StringComparer.Ordinal).ToArray();
                 if (styles.Length != 1 || styles[0] != taste) return false;
                 // An affirmative and a negated/qualified statement cannot supply strict evidence.
                 return !clauses.Any(c => IsUncertain(c) && SweetnessWords.Matches(c).Any(m => (WineTasteVocabulary.ResolveSweetness(m.Value)??m.Value) == taste));

@@ -25,7 +25,7 @@ public static class FreeTextSearchEndpoints
      return Results.Ok(await semantic.SearchAsync(input,ct));
     return Results.Ok(await service.SearchAsync(input,ct));
    }
-   catch(Exception ex)when(ex is ArgumentException or JsonException){return Results.BadRequest(new {error="invalid_search_request"});}
+   catch(Exception ex)when(ex is ArgumentException or JsonException){return Results.BadRequest(new {error="invalid_search_request",reason=ex is ArgumentException&&ex.Message=="conflicting_type_attributes"?"conflicting_type_attributes":null});}
   });
  }
  static void CheckDuplicates(JsonElement value)

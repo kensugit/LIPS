@@ -50,7 +50,7 @@ public sealed class CatalogSearchSnapshotProvider(CatalogSearchDbContext db)
         var suppliers = await db.Suppliers.AsNoTracking().Select(x => new SearchSupplierOption(x.Code, x.Name)).ToListAsync(ct);
         var options = CanonicalOptions(countries, regions, types, volumes, vintages, suppliers);
         var result = new SearchCatalogSnapshot(digest.Finish(), options, suppliers.OrderBy(x => x.Code, StringComparer.Ordinal).ToArray())
-            { Facets = CatalogFacetOptions.Build(pairs, volumes, vintages) };
+            { Facets = CatalogFacetOptions.Build(pairs, volumes, vintages, types) };
         if (owned is not null) await owned.CommitAsync(ct);
         return result;
     }

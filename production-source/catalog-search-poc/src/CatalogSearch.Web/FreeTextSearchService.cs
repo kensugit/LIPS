@@ -10,11 +10,12 @@ using Microsoft.EntityFrameworkCore;
 namespace CatalogSearch.Web;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record ExplicitSearchUi(string? Country=null,string? Region=null,string? ProductType=null,int? VolumeMl=null,string? Vintage=null,decimal? PriceMin=null,decimal? PriceMax=null,bool? AvailableOnly=null,string? Supplier=null,int Limit=2000)
+public sealed record ExplicitSearchUi(string? Country=null,string? Region=null,string? ProductType=null,int? VolumeMl=null,string? Vintage=null,decimal? PriceMin=null,decimal? PriceMax=null,bool? AvailableOnly=null,string? Supplier=null,int Limit=2000,string? Category=null,string? Color=null,string? Effervescence=null,string? Sweetness=null)
 {
- public CatalogFilter Filter => new(Country,Region,ProductType,PriceMax,AvailableOnly==true,null,Limit,PriceMin,VolumeMl,Vintage);
+ public CatalogFilter Filter {get {var filter=new CatalogFilter(Country,Region,ProductType,PriceMax,AvailableOnly==true,null,Limit,PriceMin,VolumeMl,Vintage,Category,Color,Effervescence,WineTasteVocabulary.ResolveSweetness(Sweetness??"")??Sweetness);return filter with {TypePredicate=ProductTypeVocabulary.Resolve(filter)};}}
  public void Validate()
  {
+  _=Filter;
   if(new[]{Country,Region,ProductType,Vintage,Supplier}.Any(x=>x is not null&&(string.IsNullOrWhiteSpace(x)||x.Length>200)) || Limit is <1 or >2000 || PriceMin<0 || PriceMax<0 || PriceMin>PriceMax || VolumeMl<=0 || AvailableOnly==false)throw new ArgumentException("invalid_explicit_ui");
  }
 }

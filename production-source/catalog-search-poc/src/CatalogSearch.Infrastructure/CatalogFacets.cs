@@ -8,7 +8,9 @@ public sealed record CatalogRegionFacet(string Country, string CountryLabel, str
 public sealed record CatalogFacetOptions(IReadOnlyList<CatalogFacetValue> Countries, IReadOnlyList<CatalogRegionFacet> Regions,
     IReadOnlyList<int> VolumesMl, IReadOnlyList<CatalogFacetValue> Vintages)
 {
-    public static CatalogFacetOptions Build(IEnumerable<CatalogFacetRegionSource> source, IEnumerable<int> volumes, IEnumerable<string> vintages)
+    public IReadOnlyList<CatalogFacetValue> ProductTypes { get; init; } = [];
+    public TypeAttributeOptions TypeAttributes { get; init; } = ProductTypeVocabulary.Options([]);
+    public static CatalogFacetOptions Build(IEnumerable<CatalogFacetRegionSource> source, IEnumerable<int> volumes, IEnumerable<string> vintages, IEnumerable<string>? productTypes = null)
     {
         var pairs = source.OrderBy(p => p.Country, StringComparer.Ordinal).ThenBy(p => p.Region, StringComparer.Ordinal).ToArray();
         static string[] Raw(IEnumerable<string> values) => values.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToArray();
@@ -31,7 +33,11 @@ public sealed record CatalogFacetOptions(IReadOnlyList<CatalogFacetValue> Countr
         if (volumeOptions.Length > 100 || volumeOptions.Any(x => x is < 1 or > 100000)) throw new InvalidOperationException("Volume options exceed contract bounds.");
         var vintageOptions = vintages.Where(x => !string.IsNullOrWhiteSpace(x)).GroupBy(VintageNotation.Normalize, StringComparer.Ordinal)
             .Select(group => new CatalogFacetValue(group.Key, group.Key, Raw(group))).OrderByDescending(x => x.Label, StringComparer.Ordinal).ToArray();
-        return new(countries, regions, volumeOptions, vintageOptions);
+        var rawTypes=(productTypes??[]).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).ToArray();
+        var groupedTypes=rawTypes.GroupBy(ProductTypeVocabulary.GroupKey,StringComparer.Ordinal)
+            .Select(g=>{var raw=Raw(g);var label=ProductTypeVocabulary.Label(raw[0]);return new CatalogFacetValue(Representative(label,raw),label,raw);})
+            .OrderBy(x=>x.Label,StringComparer.Ordinal).ToArray();
+        return new(countries, regions, volumeOptions, vintageOptions) {ProductTypes=groupedTypes,TypeAttributes=ProductTypeVocabulary.Options(rawTypes)};
     }
     private sealed class RegionKeyComparer : IEqualityComparer<(string Country, string Region)>
     {
